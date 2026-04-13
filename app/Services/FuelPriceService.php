@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
  *  2. La récupération du taux EUR/USD (Frankfurter API / BCE)
  *  3. Le calcul du prix théorique par carburant selon la formule UFIP/FIPECO/CLCV
  *
- * Toutes les données sont mises en cache 15 minutes (driver fichier).
+ * Toutes les données sont mises en cache 1 heure (driver fichier).
  * Aucune clé API n'est exposée côté client.
  */
 class FuelPriceService
@@ -49,13 +49,13 @@ class FuelPriceService
 
     /**
      * Durée de mise en cache des données marché (en secondes).
-     * Récupérée depuis config/fuel.php — 900s = 15 minutes.
+     * Récupérée depuis config/fuel.php — 3600s = 1 heure.
      */
     private int $cacheTtl;
 
     public function __construct()
     {
-        $this->cacheTtl = config('fuel.cache_ttl', 900);
+        $this->cacheTtl = config('fuel.cache_ttl', 3600);
     }
 
     // -------------------------------------------------------------------------
@@ -76,7 +76,7 @@ class FuelPriceService
      */
     public function getPrixTheorique(): array
     {
-        // Récupération des données marché (avec cache 15 min)
+        // Récupération des données marché (avec cache 1 heure)
         $brentUsd         = $this->getBrentPrice();
         $eurUsd           = $this->getEurUsdRate();
         $gasoilUsdPerGallon = $this->getGasoilRotterdamPrice(); // HO=F en USD/gallon, null si indisponible (fallback Brent)
@@ -99,7 +99,7 @@ class FuelPriceService
             'brent_usd'            => round($brentUsd, 2),
             'eur_usd'              => round($eurUsd, 4),
             'gasoil_rotterdam_usd' => $gasoilUsdPerGallon !== null ? round($gasoilUsdPerGallon, 4) : null,
-            'mise_a_jour'          => now()->format('d/m/Y à H:i'),
+            'mise_a_jour'          => now()->timezone('Europe/Paris')->format('d/m/Y à H:i'),
             'sources'              => $this->getSources($gasoilUsdPerGallon !== null),
             'erreur'               => null,
         ];
@@ -113,7 +113,7 @@ class FuelPriceService
      * Retourne le cours du pétrole Brent en USD.
      * Source principale : Yahoo Finance (BZ=F).
      * Fallback : Alpha Vantage si Yahoo Finance échoue.
-     * Résultat mis en cache 15 minutes.
+     * Résultat mis en cache 1 heure.
      *
      * @return float|null Cours en USD, ou null si toutes les sources échouent
      */
@@ -147,7 +147,7 @@ class FuelPriceService
      * Retourne la cotation ICE Low Sulphur Gasoil Futures en USD par tonne métrique.
      * Ticker Yahoo Finance : LSG=F — marché ARA (Amsterdam-Rotterdam-Anvers).
      * Référence de prix utilisée par l'UFIP pour le gasoil européen.
-     * Résultat mis en cache 15 minutes.
+     * Résultat mis en cache 1 heure.
      *
      * Si la cotation est indisponible, retourne null : le calculateur bascule
      * automatiquement sur le fallback Brent + marge raffinage 0.43 €/L.
@@ -305,7 +305,7 @@ class FuelPriceService
     /**
      * Retourne le taux EUR/USD depuis l'API Frankfurter (BCE).
      * Gratuit, sans clé, maintenu par la Banque Centrale Européenne.
-     * Résultat mis en cache 15 minutes.
+     * Résultat mis en cache 1 heure.
      *
      * @return float|null Nombre d'euros pour 1 USD, ou null si indisponible
      */
@@ -514,7 +514,7 @@ class FuelPriceService
             'brent_usd'            => null,
             'eur_usd'              => null,
             'gasoil_rotterdam_usd' => null,
-            'mise_a_jour'          => now()->format('d/m/Y à H:i'),
+            'mise_a_jour'          => now()->timezone('Europe/Paris')->format('d/m/Y à H:i'),
             'sources'              => $this->getSources(),
             'erreur'               => $message,
         ];

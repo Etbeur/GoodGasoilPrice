@@ -1,41 +1,41 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Calculez le prix thÃ©orique juste du carburant Ã  la pompe en France, basÃ© sur le cours du pÃ©trole Brent et le taux EUR/USD en temps rÃ©el.">
-    <meta name="keywords" content="prix carburant france, prix essence thÃ©orique, brent, gazole, sp95, e85, calcul prix pompe">
+    <meta name="description" content="Calculez le prix théorique juste du carburant à la pompe en France, basé sur le cours du pétrole Brent et le taux EUR/USD en temps réel.">
+    <meta name="keywords" content="prix carburant france, prix essence théorique, brent, gazole, sp95, e85, calcul prix pompe">
     <meta name="robots" content="index, follow">
 
-    <!-- Open Graph pour partage rÃ©seaux sociaux -->
-    <meta property="og:title" content="Quel devrait Ãªtre le prix du carburant aujourd'hui en France ?">
-    <meta property="og:description" content="Prix thÃ©orique calculÃ© Ã  partir du cours du Brent et du taux EUR/USD en temps rÃ©el.">
+    <!-- Open Graph pour partage réseaux sociaux -->
+    <meta property="og:title" content="Quel devrait être le prix du carburant aujourd'hui en France ?">
+    <meta property="og:description" content="Prix théorique calculé à partir du cours du Brent et du taux EUR/USD en temps réel.">
     <meta property="og:type" content="website">
 
-    <title>@yield('title', 'Prix carburant thÃ©orique France â€” ' . date('d/m/Y'))</title>
+    <title>@yield('title', 'Prix carburant théorique France — ' . date('d/m/Y'))</title>
 
     {{-- =====================================================================
-         EMPLACEMENT GOOGLE ADSENSE - A ACTIVER EN V2
+         EMPLACEMENT GOOGLE ADSENSE - À ACTIVER EN V2
          ======================================================================
-         Integrer ici le script Google AdSense externe en V2 avec votre
+         Intégrer ici le script Google AdSense externe en V2 avec votre
          identifiant ca-pub-XXXXXXXXXXXXXXXX.
     ====================================================================== --}}
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
 <body>
 
-    {{-- En-tÃªte --}}
+    {{-- En-tête --}}
     <header class="entete">
-        <h1>Quel devrait Ãªtre le prix du carburant aujourd'hui&nbsp;?</h1>
+        <h1>Quel devrait être le prix du carburant aujourd'hui&nbsp;?</h1>
         <p class="sous-titre">
-            Prix thÃ©orique calculÃ© Ã  partir du cours du pÃ©trole Brent et du taux EUR/USD
-            en temps rÃ©el. Un repÃ¨re citoyen, pas une accusation envers les distributeurs.
+            Prix théorique calculé à partir du cours du pétrole Brent et du taux EUR/USD
+            en temps réel. Un repère citoyen, pas une accusation envers les distributeurs.
         </p>
     </header>
 
-    {{-- Emplacement publicitÃ© haute (AdSense V2) --}}
+    {{-- Emplacement publicité haute (AdSense V2) --}}
     <div class="pub-bandeau-haut" aria-hidden="true">
-        {{-- BanniÃ¨re AdSense responsive â€” Ã€ ACTIVER EN V2 --}}
+        {{-- Bannière AdSense responsive — À ACTIVER EN V2 --}}
     </div>
 
     {{-- Contenu principal --}}
@@ -43,16 +43,22 @@
         @yield('content')
     </main>
 
-    {{-- Emplacement publicitÃ© basse (AdSense V2) --}}
+    {{-- Emplacement publicité basse (AdSense V2) --}}
     <div class="pub-bandeau-bas" aria-hidden="true">
-        {{-- BanniÃ¨re AdSense responsive â€” Ã€ ACTIVER EN V2 --}}
+        {{-- Bannière AdSense responsive — À ACTIVER EN V2 --}}
     </div>
 
     {{-- Pied de page --}}
     <footer class="pied-de-page">
         <p>
-            DonnÃ©es actualisÃ©es toutes les 15 minutes.
-            Ce site est un outil informatif indÃ©pendant, sans lien avec les compagnies pÃ©troliÃ¨res.
+            <p>
+                Code source disponible sur 
+                <a href="https://github.com/Etbeur/GoodGasoilPrice" 
+                target="_blank" rel="noopener">GitHub</a>
+                &middot; Projet indépendant.
+            </p>
+            Données actualisées toutes les 15 minutes.
+            Ce site est un outil informatif indépendant, sans lien avec les compagnies pétrolières.
         </p>
         <p style="margin-top: 0.5rem;">
             Sources : UFIP &middot; FIPECO &middot; UFC-Que Choisir &middot; Connaissance des Energies &middot; Frankfurter API (BCE) &middot; Yahoo Finance
@@ -61,4 +67,3 @@
 
 </body>
 </html>
-

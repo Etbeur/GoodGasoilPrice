@@ -124,10 +124,10 @@ return [
     |--------------------------------------------------------------------------
     | Durée de mise en cache des données marché (en secondes)
     |--------------------------------------------------------------------------
-    | Brent et EUR/USD sont rafraîchis toutes les 15 minutes.
+    | Brent et EUR/USD sont rafraîchis toutes les 60 minutes.
     | Suffisant pour un outil informatif non temps réel.
     */
-    'cache_ttl' => 900, // 15 minutes
+    'cache_ttl' => 3600, // 1 heure
 
     /*
     |--------------------------------------------------------------------------
