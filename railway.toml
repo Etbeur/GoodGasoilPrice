@@ -1,0 +1,15 @@
+[build]
+# Commande d'installation des dépendances PHP
+builder = "nixpacks"
+
+[deploy]
+# Démarrage du serveur web PHP via le Procfile
+startCommand = "php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan serve --host=0.0.0.0 --port=$PORT"
+healthcheckPath = "/"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[environment]
+# Variables injectées automatiquement par Railway — ne pas dupliquer dans .env
+# APP_URL sera défini manuellement dans le tableau de bord Railway

@@ -1,0 +1,408 @@
+﻿/* ====================================================================
+           CSS Vanilla responsive â€” sans framework externe
+           Palette : sobriÃ©tÃ© institutionnelle, lisibilitÃ© prioritaire
+        ==================================================================== */
+
+        :root {
+            --couleur-fond:         #f4f5f7;
+            --couleur-carte:        #ffffff;
+            --couleur-texte:        #1a1a2e;
+            --couleur-texte-lÃ©ger:  #5a5a7a;
+            --couleur-bordure:      #e0e0ef;
+            --couleur-accent:       #1a4fa0;
+            --couleur-accent-hover: #153d80;
+            --couleur-alerte:       #e74c3c;
+            --rayon-carte:          12px;
+            --ombre-carte:          0 2px 12px rgba(0,0,0,0.07);
+            --police:               'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--police);
+            background-color: var(--couleur-fond);
+            color: var(--couleur-texte);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* En-tÃªte ----------------------------------------------------------- */
+        .entete {
+            background: var(--couleur-accent);
+            color: white;
+            padding: 2rem 1rem 1.5rem;
+            text-align: center;
+        }
+
+        .entete h1 {
+            font-size: clamp(1.25rem, 4vw, 2rem);
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .entete p.sous-titre {
+            font-size: 0.95rem;
+            opacity: 0.85;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* =====================================================================
+           EMPLACEMENT PUBLICITÃ‰ â€” BANNIÃˆRE HAUTE (AdSense V2)
+           ======================================================================
+           Zone rÃ©servÃ©e sous l'en-tÃªte pour une banniÃ¨re responsive.
+           Activer lorsque le compte AdSense est validÃ©.
+        ===================================================================== */
+        .pub-bandeau-haut {
+            /* display: none; â† dÃ©commenter pour masquer jusqu'Ã  activation */
+            background: var(--couleur-carte);
+            border-bottom: 1px solid var(--couleur-bordure);
+            text-align: center;
+            padding: 0.5rem;
+            min-height: 0; /* sera remplacÃ© par la hauteur de la pub */
+        }
+        /* Balise AdSense Ã  placer ici en V2 :
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+             data-ad-slot="XXXXXXXXXX"
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+        */
+
+        /* Contenu principal ------------------------------------------------- */
+        .contenu {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        /* Bandeau donnÃ©es marchÃ© -------------------------------------------- */
+        .donnees-marche {
+            background: var(--couleur-carte);
+            border: 1px solid var(--couleur-bordure);
+            border-radius: var(--rayon-carte);
+            padding: 1rem 1.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem 2rem;
+            align-items: center;
+            margin-bottom: 2rem;
+            box-shadow: var(--ombre-carte);
+        }
+
+        .donnees-marche .indicateur {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .donnees-marche .indicateur .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--couleur-texte-lÃ©ger);
+        }
+
+        .donnees-marche .indicateur .valeur {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--couleur-accent);
+        }
+
+        .unite-mesure {
+            font-size: 0.75rem;
+            font-weight: 400;
+        }
+
+        .donnees-marche .mise-a-jour {
+            margin-left: auto;
+            font-size: 0.8rem;
+            color: var(--couleur-texte-lÃ©ger);
+        }
+
+        /* Grille des carburants --------------------------------------------- */
+        .grille-carburants {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* Carte carburant ---------------------------------------------------- */
+        .carte-carburant {
+            background: var(--couleur-carte);
+            border: 1px solid var(--couleur-bordure);
+            border-radius: var(--rayon-carte);
+            overflow: hidden;
+            box-shadow: var(--ombre-carte);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .carte-carburant:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.10);
+        }
+
+        .carte-entete {
+            padding: 1rem 1.25rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 3px solid var(--couleur-accent);
+        }
+
+        .carte-badge {
+            width: 14px;
+            height: 36px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
+        .carte-nom {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .carte-description {
+            font-size: 0.78rem;
+            color: var(--couleur-texte-lÃ©ger);
+            margin-top: 0.1rem;
+        }
+
+        .carte-corps {
+            padding: 1.25rem;
+        }
+
+        /* Prix principal ---------------------------------------------------- */
+        .prix-principal {
+            text-align: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .prix-principal .label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--couleur-texte-lÃ©ger);
+            margin-bottom: 0.25rem;
+        }
+
+        .prix-principal .valeur {
+            font-size: 2.4rem;
+            font-weight: 800;
+            color: var(--couleur-accent);
+            letter-spacing: -0.02em;
+        }
+
+        .prix-principal .valeur .unite {
+            font-size: 1rem;
+            font-weight: 400;
+            color: var(--couleur-texte-lÃ©ger);
+        }
+
+        .prix-fourchette {
+            font-size: 0.85rem;
+            color: var(--couleur-texte-lÃ©ger);
+            margin-top: 0.2rem;
+        }
+
+        /* DÃ©composition du prix --------------------------------------------- */
+        .decomposition {
+            border-top: 1px solid var(--couleur-bordure);
+            padding-top: 1rem;
+        }
+
+        .decomposition .titre {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--couleur-texte-lÃ©ger);
+            margin-bottom: 0.6rem;
+        }
+
+        .decomposition table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+
+        .decomposition table tr td {
+            padding: 0.25rem 0;
+            color: var(--couleur-texte-lÃ©ger);
+        }
+
+        .decomposition table tr td:last-child {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            color: var(--couleur-texte);
+            font-weight: 500;
+        }
+
+        .decomposition table tr.total td {
+            font-weight: 700;
+            color: var(--couleur-texte);
+            border-top: 1px solid var(--couleur-bordure);
+            padding-top: 0.4rem;
+            margin-top: 0.2rem;
+        }
+
+        /* Message d'erreur -------------------------------------------------- */
+        .alerte-erreur {
+            background: #fdf2f2;
+            border: 1px solid #f5c6cb;
+            border-radius: var(--rayon-carte);
+            padding: 1.5rem;
+            color: var(--couleur-alerte);
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        /* Bloc explication mÃ©thodologie ------------------------------------- */
+        .methodologie {
+            background: var(--couleur-carte);
+            border: 1px solid var(--couleur-bordure);
+            border-radius: var(--rayon-carte);
+            padding: 1.5rem;
+            margin-top: 2.5rem;
+            font-size: 0.88rem;
+            color: var(--couleur-texte-lÃ©ger);
+            box-shadow: var(--ombre-carte);
+        }
+
+        .methodologie h2 {
+            font-size: 1rem;
+            color: var(--couleur-texte);
+            margin-bottom: 0.75rem;
+        }
+
+        .methodologie ul {
+            padding-left: 1.25rem;
+        }
+
+        .methodologie ul li {
+            margin-bottom: 0.4rem;
+        }
+
+        /* Note citoyenne (avertissement lisibilitÃ© prix) -------------------- */
+        .note-citoyenne {
+            background: #f0f4ff;
+            border-left: 4px solid var(--couleur-accent);
+            border-radius: 0 var(--rayon-carte) var(--rayon-carte) 0;
+            padding: 1rem 1.25rem;
+            margin-top: 1.25rem;
+            font-size: 0.85rem;
+            color: var(--couleur-texte);
+        }
+
+        .note-citoyenne p {
+            margin-bottom: 0.5rem;
+        }
+
+        .note-citoyenne p:last-of-type {
+            margin-top: 0.5rem;
+        }
+
+        .note-citoyenne ul {
+            padding-left: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .note-citoyenne ul li {
+            margin-bottom: 0.5rem;
+            color: var(--couleur-texte-lÃ©ger);
+        }
+
+        .note-citoyenne em {
+            color: var(--couleur-texte-lÃ©ger);
+            font-size: 0.82rem;
+        }
+
+        /* Sources ----------------------------------------------------------- */
+        .sources {
+            margin-top: 1.25rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--couleur-bordure);
+            font-size: 0.82rem;
+        }
+
+        .sources h3 {
+            font-size: 0.88rem;
+            color: var(--couleur-texte);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Pied de page ------------------------------------------------------ */
+        .pied-de-page {
+            text-align: center;
+            padding: 2rem 1rem;
+            font-size: 0.8rem;
+            color: var(--couleur-texte-lÃ©ger);
+            border-top: 1px solid var(--couleur-bordure);
+            margin-top: 2rem;
+        }
+
+        /* =====================================================================
+           EMPLACEMENT PUBLICITÃ‰ â€” BANNIÃˆRE BAS DE PAGE (AdSense V2)
+           ======================================================================
+           Zone rÃ©servÃ©e au-dessus du footer pour une banniÃ¨re responsive.
+        ===================================================================== */
+        .pub-bandeau-bas {
+            text-align: center;
+            padding: 1rem;
+            min-height: 0;
+        }
+        /* Balise AdSense Ã  placer ici en V2 */
+
+        /* Note source ICE (Gazole uniquement) ------------------------------ */
+        .note-source-ice {
+            padding: 0.6rem 1.25rem;
+            background: #fffbf0;
+            border-top: 1px solid #f0e6c0;
+            font-size: 0.75rem;
+            color: var(--couleur-texte-lÃ©ger);
+            font-style: italic;
+        }
+
+        .note-lsg-valeur {
+            display: inline-block;
+            margin-top: 0.2rem;
+            font-style: normal;
+            font-weight: 600;
+            color: var(--couleur-texte);
+        }
+
+        /* Widget prix constatÃ© Ã  la pompe ---------------------------------- */
+        .widget-constate {
+            border-top: 2px dashed var(--couleur-bordure);
+            padding: 1rem 1.25rem;
+            background: #f8f9fc;
+        }
+
+        .widget-constate-titre {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--couleur-texte-lÃ©ger);
+            margin-bottom: 0.6rem;
+        }
+
+        .widget-constate iframe {
+            display: block;
+            width: 100%;
+            border: none;
+        }
+
+        .widget-source {
+            font-size: 0.72rem;
+            color: var(--couleur-texte-lÃ©ger);
+            margin-top: 0.4rem;
+            font-style: italic;
+        }
+
+        /* Responsive -------------------------------------------------------- */
+        @media (max-width: 480px) {
+            .donnees-marche { flex-direction: column; align-items: flex-start; }
+            .donnees-marche .mise-a-jour { margin-left: 0; }
+            .prix-principal .valeur { font-size: 2rem; }
+        }
