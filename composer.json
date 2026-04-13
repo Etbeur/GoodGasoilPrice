@@ -5,7 +5,7 @@
     "keywords": ["carburant", "prix", "france", "laravel"],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
         "guzzlehttp/guzzle": "^7.9",
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0"
