@@ -1,7 +1,6 @@
 [build]
 # Commande d'installation des dépendances PHP
 builder = "RAILPACK"
-buildCommand = "npm run build"
 
 [deploy]
 # Démarrage du serveur web PHP via le Procfile
