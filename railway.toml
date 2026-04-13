@@ -1,6 +1,5 @@
 [build]
 # Commande d'installation des dépendances PHP
-[build]
 builder = "RAILPACK"
 buildCommand = "npm run build"
 
