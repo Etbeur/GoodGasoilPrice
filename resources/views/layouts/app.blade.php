@@ -20,7 +20,7 @@
          Intégrer ici le script Google AdSense externe en V2 avec votre
          identifiant ca-pub-XXXXXXXXXXXXXXXX.
     ====================================================================== --}}
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ secure_asset('css/app.css') }}">
 </head>
 <body>
 
