@@ -57,7 +57,7 @@
                 target="_blank" rel="noopener">GitHub</a>
                 &middot; Projet indépendant.
             </p>
-            Données actualisées toutes les 15 minutes.
+            Données actualisées toutes les heures.
             Ce site est un outil informatif indépendant, sans lien avec les compagnies pétrolières.
         </p>
         <p style="margin-top: 0.5rem;">
