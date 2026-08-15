@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Calculez le prix théorique juste du carburant à la pompe en France, basé sur le cours du pétrole Brent et le taux EUR/USD en temps réel.">
-    <meta name="keywords" content="prix carburant france, prix essence théorique, brent, gazole, sp95, e85, calcul prix pompe">
+    <meta name="description" content="Estimation indicative du prix du carburant en France basée sur le cours du pétrole Brent, le taux de change USD vers EUR et les données officielles des prix constatés.">
+    <meta name="keywords" content="prix carburant france, prix essence théorique, brent, gazole, sp95, e85, calcul prix pompe, open data carburants">
     <meta name="robots" content="index, follow">
 
     <!-- Open Graph pour partage réseaux sociaux -->
-    <meta property="og:title" content="Quel devrait être le prix du carburant aujourd'hui en France ?">
-    <meta property="og:description" content="Prix théorique calculé à partir du cours du Brent et du taux EUR/USD en temps réel.">
+    <meta property="og:title" content="Quel pourrait être le prix du carburant aujourd’hui ?">
+    <meta property="og:description" content="Estimation indicative calculée à partir des dernières données disponibles pour le pétrole Brent et le taux de change USD vers EUR.">
     <meta property="og:type" content="website">
 
-    <title>@yield('title', 'Prix carburant théorique France — ' . date('d/m/Y'))</title>
+    <title>@yield('title', 'Quel pourrait être le prix du carburant aujourd’hui ? — ' . date('d/m/Y'))</title>
 
     {{-- =====================================================================
          EMPLACEMENT GOOGLE ADSENSE - À ACTIVER EN V2
@@ -20,16 +20,15 @@
          Intégrer ici le script Google AdSense externe en V2 avec votre
          identifiant ca-pub-XXXXXXXXXXXXXXXX.
     ====================================================================== --}}
-    <link rel="stylesheet" href="{{ secure_asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
 <body>
 
     {{-- En-tête --}}
     <header class="entete">
-        <h1>Quel devrait être le prix du carburant aujourd'hui&nbsp;?</h1>
+        <h1>Quel pourrait être le prix du carburant aujourd’hui&nbsp;?</h1>
         <p class="sous-titre">
-            Prix théorique calculé à partir du cours du pétrole Brent et du taux EUR/USD
-            en temps réel. Un repère citoyen, pas une accusation envers les distributeurs.
+            Estimation indicative calculée à partir des dernières données disponibles pour le pétrole Brent et le taux de change du dollar vers l’euro. Ce résultat constitue un repère et non un prix garanti.
         </p>
     </header>
 
@@ -51,17 +50,16 @@
     {{-- Pied de page --}}
     <footer class="pied-de-page">
         <p>
-            <p>
-                Code source disponible sur 
-                <a href="https://github.com/Etbeur/GoodGasoilPrice" 
-                target="_blank" rel="noopener">GitHub</a>
-                &middot; Projet indépendant.
-            </p>
-            Données actualisées toutes les heures.
-            Ce site est un outil informatif indépendant, sans lien avec les compagnies pétrolières.
+            Code source disponible sur
+            <a href="https://github.com/Etbeur/GoodGasoilPrice"
+               target="_blank" rel="noopener">GitHub</a>
+            &middot; Projet indépendant.
         </p>
         <p style="margin-top: 0.5rem;">
-            Sources : UFIP &middot; FIPECO &middot; UFC-Que Choisir &middot; Connaissance des Energies &middot; Frankfurter API (BCE) &middot; Yahoo Finance
+            Données de marché mises en cache (1 heure) &middot; Flux officiel Open Data actualisé toutes les 10 minutes.
+        </p>
+        <p style="margin-top: 0.5rem;">
+            Sources : UFIP &middot; FIPECO &middot; CLCV &middot; Direction Générale des Douanes &middot; DGCCRF (prix-carburants.gouv.fr) &middot; Frankfurter API (BCE) &middot; Yahoo Finance
         </p>
     </footer>
 

@@ -1,4 +1,4 @@
-﻿/* ====================================================================
+/* ====================================================================
            CSS Vanilla responsive â€” sans framework externe
            Palette : sobriÃ©tÃ© institutionnelle, lisibilitÃ© prioritaire
         ==================================================================== */
@@ -7,7 +7,7 @@
             --couleur-fond:         #f4f5f7;
             --couleur-carte:        #ffffff;
             --couleur-texte:        #1a1a2e;
-            --couleur-texte-lÃ©ger:  #5a5a7a;
+            --couleur-texte-leger:  #5a5a7a;
             --couleur-bordure:      #e0e0ef;
             --couleur-accent:       #1a4fa0;
             --couleur-accent-hover: #153d80;
@@ -102,7 +102,7 @@
             font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
         }
 
         .donnees-marche .indicateur .valeur {
@@ -119,7 +119,7 @@
         .donnees-marche .mise-a-jour {
             margin-left: auto;
             font-size: 0.8rem;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
         }
 
         /* Grille des carburants --------------------------------------------- */
@@ -166,7 +166,7 @@
 
         .carte-description {
             font-size: 0.78rem;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
             margin-top: 0.1rem;
         }
 
@@ -184,7 +184,7 @@
             font-size: 0.78rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
             margin-bottom: 0.25rem;
         }
 
@@ -198,12 +198,12 @@
         .prix-principal .valeur .unite {
             font-size: 1rem;
             font-weight: 400;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
         }
 
         .prix-fourchette {
             font-size: 0.85rem;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
             margin-top: 0.2rem;
         }
 
@@ -217,7 +217,7 @@
             font-size: 0.72rem;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
             margin-bottom: 0.6rem;
         }
 
@@ -229,7 +229,7 @@
 
         .decomposition table tr td {
             padding: 0.25rem 0;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
         }
 
         .decomposition table tr td:last-child {
@@ -266,7 +266,7 @@
             padding: 1.5rem;
             margin-top: 2.5rem;
             font-size: 0.88rem;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
             box-shadow: var(--ombre-carte);
         }
 
@@ -310,11 +310,11 @@
 
         .note-citoyenne ul li {
             margin-bottom: 0.5rem;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
         }
 
         .note-citoyenne em {
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
             font-size: 0.82rem;
         }
 
@@ -337,7 +337,7 @@
             text-align: center;
             padding: 2rem 1rem;
             font-size: 0.8rem;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
             border-top: 1px solid var(--couleur-bordure);
             margin-top: 2rem;
         }
@@ -360,7 +360,7 @@
             background: #fffbf0;
             border-top: 1px solid #f0e6c0;
             font-size: 0.75rem;
-            color: var(--couleur-texte-lÃ©ger);
+            color: var(--couleur-texte-leger);
             font-style: italic;
         }
 
@@ -372,32 +372,61 @@
             color: var(--couleur-texte);
         }
 
-        /* Widget prix constatÃ© Ã  la pompe ---------------------------------- */
-        .widget-constate {
+        /* Prix moyen national déclaré (Open Data officiel) -------------------- */
+        .prix-moyen-national {
             border-top: 2px dashed var(--couleur-bordure);
             padding: 1rem 1.25rem;
             background: #f8f9fc;
         }
 
-        .widget-constate-titre {
+        .prix-moyen-national .prix-moyen-titre {
             font-size: 0.72rem;
             text-transform: uppercase;
             letter-spacing: 0.06em;
-            color: var(--couleur-texte-lÃ©ger);
-            margin-bottom: 0.6rem;
+            color: var(--couleur-texte-leger);
+            margin-bottom: 0.35rem;
         }
 
-        .widget-constate iframe {
-            display: block;
-            width: 100%;
-            border: none;
+        .prix-moyen-national .prix-moyen-valeur {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--couleur-texte);
+            font-variant-numeric: tabular-nums;
         }
 
-        .widget-source {
-            font-size: 0.72rem;
-            color: var(--couleur-texte-lÃ©ger);
+        .prix-moyen-national .prix-moyen-valeur .unite {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: var(--couleur-texte-leger);
+        }
+
+        .prix-moyen-national .prix-moyen-meta {
+            font-size: 0.75rem;
+            color: var(--couleur-texte-leger);
+            margin-top: 0.25rem;
+        }
+
+        .prix-moyen-national .prix-moyen-fallback {
+            font-size: 0.73rem;
+            color: #856404;
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-radius: 4px;
+            padding: 0.3rem 0.5rem;
             margin-top: 0.4rem;
+        }
+
+        .prix-moyen-national .prix-moyen-alerte {
+            font-size: 0.8rem;
+            color: var(--couleur-texte-leger);
             font-style: italic;
+            margin: 0.3rem 0;
+        }
+
+        .prix-moyen-national .prix-moyen-source {
+            font-size: 0.7rem;
+            color: var(--couleur-texte-leger);
+            margin-top: 0.4rem;
         }
 
         /* Responsive -------------------------------------------------------- */

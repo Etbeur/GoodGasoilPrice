@@ -3,40 +3,45 @@
 namespace App\Http\Controllers;
 
 use App\Services\FuelPriceService;
+use App\Services\ObservedFuelPriceService;
 use Illuminate\View\View;
 
 /**
  * Contrôleur principal de l'application GoodGasoilPrice.
  *
- * Rôle unique : déléguer le calcul au FuelPriceService,
- * puis passer les données formatées à la vue Blade.
- *
- * Aucune logique métier ici — tout est dans le service.
+ * Rôle : orchestrer la récupération des prix théoriques estimés
+ * et des moyennes nationales observées (flux officiel DGCCRF / Open Data),
+ * puis passer les données à la vue Blade.
  */
 class FuelController extends Controller
 {
     public function __construct(
-        private readonly FuelPriceService $fuelService
+        private readonly FuelPriceService $fuelService,
+        private readonly ObservedFuelPriceService $observedFuelService
     ) {}
 
     /**
-     * Affiche la page principale avec les prix théoriques des carburants.
+     * Affiche la page principale avec les prix théoriques et les prix moyens observés.
      *
      * Route : GET /
      */
     public function index(): View
     {
-        // Appel au service : récupération des données marché + calcul des prix
-        $donnees = $this->fuelService->getPrixTheorique();
+        // 1. Récupération des prix théoriques calculés (Brent, USD vers EUR, taxes)
+        $donneesTheoriques = $this->fuelService->getPrixTheorique();
+
+        // 2. Récupération des prix moyens nationaux constatés (Open Data Ministère de l'Économie)
+        $donneesObservees = $this->observedFuelService->getPrixObserves();
 
         return view('fuel.index', [
-            'carburants'          => $donnees['carburants'],
-            'brentUsd'            => $donnees['brent_usd'],
-            'eurUsd'              => $donnees['eur_usd'],
-            'gasoilRotterdamUsd'  => $donnees['gasoil_rotterdam_usd'],
-            'miseAJour'           => $donnees['mise_a_jour'],
-            'sources'             => $donnees['sources'],
-            'erreur'              => $donnees['erreur'],
+            'carburants' => $donneesTheoriques['carburants'],
+            'brentUsd' => $donneesTheoriques['brent_usd'],
+            'usdEur' => $donneesTheoriques['usd_eur'],
+            'gasoilRotterdamUsd' => $donneesTheoriques['gasoil_rotterdam_usd'],
+            'miseAJour' => $donneesTheoriques['mise_a_jour'],
+            'sources' => $donneesTheoriques['sources'],
+            'erreur' => $donneesTheoriques['erreur'],
+            'prixObserves' => $donneesObservees,
         ]);
     }
 }

@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Prix carburant théorique France — ' . date('d/m/Y'))
+@section('title', 'Quel pourrait être le prix du carburant aujourd’hui ? — ' . date('d/m/Y'))
 
 @section('content')
 
     {{-- =====================================================================
          Bandeau données marché
-         Affiche le cours Brent et le taux EUR/USD utilisés pour le calcul
+         Affiche le cours Brent et le taux de change USD vers EUR
     ===================================================================== --}}
     @if(!$erreur)
     <div class="donnees-marche">
@@ -15,11 +15,11 @@
             <span class="valeur">{{ number_format($brentUsd, 2) }} <small class="unite-mesure">USD/baril</small></span>
         </div>
         <div class="indicateur">
-            <span class="label">Taux EUR/USD</span>
-            <span class="valeur">{{ number_format($eurUsd, 4) }} <small class="unite-mesure">€ pour 1 $</small></span>
+            <span class="label">Taux de change USD vers EUR</span>
+            <span class="valeur">1 USD = {{ number_format($usdEur, 4, ',', ' ') }} <small class="unite-mesure">EUR</small></span>
         </div>
         <div class="mise-a-jour">
-            Dernière mise à jour<br>
+            Dernières données disponibles<br>
             <strong>{{ $miseAJour }}</strong>
         </div>
     </div>
@@ -40,21 +40,13 @@
     ===================================================================== --}}
     @if(!$erreur && count($carburants) > 0)
 
-    {{-- Correspondance clé interne → paramètre fuel du widget prix-carburant.eu --}}
-    @php
-    $widgetFuels = [
-        'sp95_e10' => 'E10',
-        'sp95'     => 'SP95',
-        'sp98'     => 'SP98',
-        'gazole'   => 'Gazole',
-        'e85'      => 'E85',
-        'gpl'      => 'GPLc',
-    ];
-    @endphp
-
     <div class="grille-carburants">
 
         @foreach($carburants as $carburant)
+        @php
+            $observe = $prixObserves['carburants'][$carburant['cle']] ?? null;
+            $observeDisponible = $observe !== null && !empty($observe['disponible']) && $observe['prix_moyen'] !== null;
+        @endphp
         <article class="carte-carburant">
 
             {{-- En-tête de la carte --}}
@@ -77,7 +69,7 @@
                         <span class="unite">&nbsp;€/L</span>
                     </div>
                     <div class="prix-fourchette">
-                        Fourchette honnête :
+                        Fourchette indicative :
                         {{ number_format($carburant['prix_min'], 3, ',', '') }}&nbsp;€
                         &ndash;
                         {{ number_format($carburant['prix_max'], 3, ',', '') }}&nbsp;€
@@ -86,7 +78,7 @@
 
                 {{-- Décomposition du prix en 4 lignes --}}
                 <div class="decomposition">
-                    <div class="titre">Décomposition du prix</div>
+                    <div class="titre">Décomposition du prix estimé</div>
                     <table>
                         <tbody>
                             <tr>
@@ -106,7 +98,7 @@
                                 <td>{{ number_format($carburant['detail']['tva'], 4, ',', '') }}&nbsp;€</td>
                             </tr>
                             <tr class="total">
-                                <td>Total TTC</td>
+                                <td>Total TTC estimé</td>
                                 <td>{{ number_format($carburant['prix_ttc'], 3, ',', '') }}&nbsp;€</td>
                             </tr>
                         </tbody>
@@ -116,7 +108,7 @@
             </div>{{-- fin .carte-corps --}}
 
             {{-- ---------------------------------------------------------------
-                 Note source ICE — Gazole uniquement
+                 Note source NYMEX — Gazole uniquement
             --------------------------------------------------------------- --}}
             @if($carburant['cle'] === 'gazole' && $carburant['lsg_usd_tonne'] !== null)
             <div class="note-source-ice">
@@ -130,24 +122,33 @@
             @endif
 
             {{-- ---------------------------------------------------------------
-                 Widget prix moyen constaté à la pompe
-                 Source : prix-carburants.gouv.fr via prix-carburant.eu
-                 Clairement séparé du prix théorique calculé ci-dessus
+                 Prix moyen national déclaré (Open Data officiel DGCCRF)
+                 Récupéré côté serveur, sans iframe ni widget tiers
             --------------------------------------------------------------- --}}
-            @if(isset($widgetFuels[$carburant['cle']]))
-            <div class="widget-constate">
-                <div class="widget-constate-titre">Prix moyen constaté à la pompe</div>
-                <iframe
-                    src="https://prix-carburant.eu/embed/prix-moyen-national.php?fuel={{ $widgetFuels[$carburant['cle']] }}&compact=1&show_date=1&show_title=0"
-                    height="180"
-                    frameborder="0"
-                    scrolling="no"
-                    loading="lazy"
-                    title="Prix moyen constaté {{ $carburant['nom'] }} — prix-carburants.gouv.fr"
-                ></iframe>
-                <div class="widget-source">Prix constaté source&nbsp;: prix-carburants.gouv.fr</div>
+            <div class="prix-moyen-national {{ !$observeDisponible ? 'prix-moyen-indisponible' : '' }}">
+                <div class="prix-moyen-titre">Prix moyen national déclaré</div>
+                @if($observeDisponible)
+                    <div class="prix-moyen-valeur">
+                        {{ number_format($observe['prix_moyen'], 3, ',', ' ') }}&nbsp;<span class="unite">€/L</span>
+                    </div>
+                    <div class="prix-moyen-meta">
+                        {{ number_format($observe['nb_declarations'], 0, ',', ' ') }} déclarations prises en compte
+                        @if(!empty($observe['derniere_maj']))
+                            &middot; Dernière actualisation : {{ $observe['derniere_maj'] }}
+                        @endif
+                    </div>
+                    @if(!empty($prixObserves['is_fallback']) && !empty($prixObserves['recupere_le']))
+                        <div class="prix-moyen-fallback">
+                            Dernières données officielles disponibles, récupérées le {{ $prixObserves['recupere_le'] }}
+                        </div>
+                    @endif
+                @else
+                    <p class="prix-moyen-alerte">Prix moyen national momentanément indisponible.</p>
+                @endif
+                <div class="prix-moyen-source">
+                    Source : {{ $prixObserves['source'] ?? 'DGCCRF – prix-carburants.gouv.fr' }} &middot; {{ $prixObserves['licence'] ?? 'Licence Ouverte 2.0' }}
+                </div>
             </div>
-            @endif
 
         </article>
         @endforeach
@@ -159,20 +160,20 @@
          Bloc méthodologie et avertissement
     ===================================================================== --}}
     <section class="methodologie">
-        <h2>Comment ce prix est-il calculé ?</h2>
+        <h2>Comment ces prix sont-ils calculés et observés&nbsp;?</h2>
         <ul>
             <li>
                 <strong>Coût matière :</strong>
-                (Cours Brent en USD ÷ 159&nbsp;litres) × taux EUR/USD
+                (Cours Brent en USD ÷ 159&nbsp;litres) × taux USD vers EUR
             </li>
             <li>
                 <strong>Marge de raffinage :</strong>
-                entre +0,03&nbsp;€/L (E85) et +0,18&nbsp;€/L (Gazole, coté Rotterdam) — estimations 2025-2026
+                entre +0,03&nbsp;€/L (E85) et +0,09&nbsp;€/L (SP98) — estimations moyennes 2025-2026 (UFIP / IFPen)
             </li>
             <li>
                 <strong>Marge de distribution :</strong>
-                +0,32&nbsp;€/L — transport, stockage, station, CEE et TIRUERT
-                (sources&nbsp;: UFC-Que Choisir 10/04/2026, UFIP mars&nbsp;2026)
+                +0,32&nbsp;€/L pour les essences et le gazole — transport, stockage, station, CEE et TIRUERT
+                (sources&nbsp;: UFC-Que Choisir 10/04/2026, CLCV mars&nbsp;2026, UFIP mars&nbsp;2026)
             </li>
             <li>
                 <strong>Accise (TICPE) :</strong>
@@ -182,6 +183,10 @@
             <li>
                 <strong>TVA 20&nbsp;%</strong> appliquée sur (HT + accise)
             </li>
+            <li>
+                <strong>Prix moyen national :</strong>
+                Moyenne arithmétique non pondérée des prix actuellement présents dans le flux officiel. Les stations distribuant moins de 500 m³ de carburants par an ne sont pas toutes soumises à l’obligation de déclaration.
+            </li>
         </ul>
 
         {{-- Note citoyenne : pourquoi l'écart pompe/théorique est normal --}}
@@ -190,39 +195,24 @@
                 <strong>Pourquoi le prix à la pompe peut différer du prix théorique&nbsp;?</strong>
             </p>
             <p>
-                Ce calculateur donne un <strong>repère citoyen</strong> basé sur les données de marché
-                en temps réel. Il ne prétend pas reproduire exactement le prix constaté à la pompe,
-                pour plusieurs raisons légitimes&nbsp;:
+                Ce calculateur donne un <strong>repère citoyen</strong> basé sur les dernières données de marché disponibles. Il ne prétend pas reproduire exactement le prix constaté à la pompe, pour plusieurs raisons légitimes&nbsp;:
             </p>
             <ul>
                 <li>
-                    <strong>Marges de raffinage variables :</strong> les spreads de raffinage fluctuent
-                    quotidiennement selon la demande mondiale. En période de tension (hiver, crises
-                    géopolitiques), ils peuvent doubler ou tripler la valeur moyenne utilisée ici.
+                    <strong>Marges de raffinage variables :</strong> les spreads de raffinage fluctuent selon la demande mondiale. En période de tension (hiver, crises géopolitiques), ils peuvent s'éloigner des valeurs moyennes utilisées ici.
                 </li>
                 <li>
-                    <strong>CEE et TIRUERT :</strong> les Certificats d'Économie d'Énergie et la
-                    Taxe Incitative aux Energies Renouvelables dans les Transports représentent
-                    jusqu'à 0,15&nbsp;€/L et sont intégrés dans notre marge de distribution.
-                    Leur poids exact varie d'un distributeur à l'autre.
+                    <strong>CEE et TIRUERT :</strong> les Certificats d'Économie d'Énergie et la Taxe Incitative aux Energies Renouvelables dans les Transports représentent jusqu'à 0,15&nbsp;€/L et sont intégrés dans notre marge de distribution. Leur poids exact varie d'un distributeur à l'autre.
                 </li>
                 <li>
-                    <strong>Gazole :</strong> la France importe une part significative de son gazole,
-                    coté séparément à Rotterdam. Les coûts d'importation et les obligations
-                    d'incorporation de biocarburants (TIRUERT) expliquent un écart structurel
-                    plus important qu'pour les essences.
+                    <strong>Gazole :</strong> la France importe une part significative de son gazole, coté séparément à Rotterdam. Les coûts d'importation et les obligations d'incorporation de biocarburants expliquent un écart structurel plus important que pour les essences.
                 </li>
                 <li>
-                    <strong>E85 et GPL :</strong> ces carburants sont largement découplés du pétrole
-                    brut. L'E85 est composé à 65–85&nbsp;% d'éthanol agricole (filière betterave/blé)
-                    et le GPL provient majoritairement du gaz naturel. La formule Brent n'est pas
-                    adaptée à ces filières — les prix affichés pour E85 et GPL sont indicatifs
-                    et doivent être interprétés avec prudence.
+                    <strong>E85 et GPL :</strong> ces carburants sont largement découplés du pétrole brut. L'E85 est composé à 65–85&nbsp;% d'éthanol agricole (filière betterave/blé) et le GPL provient majoritairement du gaz naturel. La formule Brent n'est pas adaptée à ces filières — les prix affichés pour E85 et GPL sont indicatifs et doivent être interprétés avec prudence.
                 </li>
             </ul>
             <p>
-                <em>Cet outil donne un repère basé sur les données publiques —
-                il n'accuse pas les distributeurs.</em>
+                <em>Cet outil donne un repère basé sur les données publiques — il n'accuse pas les distributeurs.</em>
             </p>
         </div>
 
@@ -234,6 +224,7 @@
                 @foreach($sources as $label => $source)
                 <li><strong>{{ $label }} :</strong> {{ $source }}</li>
                 @endforeach
+                <li><strong>Prix moyens observés :</strong> DGCCRF &middot; prix-carburants.gouv.fr (Open Data Ministère de l'Économie, Licence Ouverte 2.0)</li>
             </ul>
         </div>
         @endif

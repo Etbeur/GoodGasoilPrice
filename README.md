@@ -7,20 +7,20 @@
 
 Application web publique Laravel qui répond à une question simple :
 
-> **Quel devrait être le prix du carburant aujourd'hui en France ?**
+> **Quel pourrait être le prix du carburant aujourd’hui en France ?**
 
-GoodGasoilPrice calcule un **prix théorique citoyen** du carburant à la pompe en France à partir de données de marché proches du temps réel, puis l'affiche aux côtés d'un prix moyen constaté à la pompe.
+GoodGasoilPrice calcule une **estimation indicative citoyenne** du prix du carburant à la pompe en France à partir des dernières données de marché disponibles, puis l'affiche aux côtés des **prix moyens nationaux déclarés** récupérés directement depuis le flux officiel Open Data du Ministère de l'Économie (DGCCRF).
 
 ## Avertissement
 
-Les prix affichés par l'application sont des **repères citoyens informatifs**. Ils ne constituent ni une vérité absolue, ni une accusation envers les distributeurs, raffineurs ou stations-service. Des écarts légitimes peuvent exister selon la logistique locale, les coûts d'approvisionnement, les obligations réglementaires, les spreads de raffinage, les stocks et les politiques commerciales.
+Les prix affichés par l'application sont des **repères citoyens informatifs**. Ils ne constituent ni une vérité absolue, ni un prix garanti, ni une accusation envers les distributeurs, raffineurs ou stations-service. Des écarts légitimes peuvent exister selon la logistique locale, les coûts d'approvisionnement, les obligations réglementaires, les spreads de raffinage, les stocks et les politiques commerciales.
 
 ## Objectif du projet
 
 - Fournir une page publique, lisible et pédagogique.
-- Afficher un prix théorique "juste" du carburant en France.
+- Afficher un prix théorique indicatif du carburant en France.
 - Expliquer la décomposition du prix : matière première, distribution, accise, TVA.
-- Permettre à tout citoyen de comparer ce prix théorique au prix constaté à la pompe.
+- Présenter les prix moyens nationaux déclarés issus du flux officiel du Ministère de l'Économie (Licence Ouverte 2.0).
 
 ## Carburants couverts
 
@@ -41,26 +41,27 @@ Les prix affichés par l'application sont des **repères citoyens informatifs**.
 - Déploiement cible : Railway
 
 Le projet ne repose ni sur Vite, ni sur npm, ni sur une compilation d'assets pour fonctionner en production.
-Le code est documenté pour **PHP 8.4** ; à ce jour, `composer.json` reste compatible avec `^8.3`.
+Le code est documenté pour **PHP 8.4** ; `composer.json` requiert `^8.4`.
 
 ## Fonctionnement général
 
 L'application expose une seule page publique sur `/`.
 
-Le flux applicatif est volontairement simple :
+Le flux applicatif est le suivant :
 
 1. `routes/web.php` déclare la route publique.
-2. `app/Http/Controllers/FuelController.php` délègue le travail métier.
-3. `app/Services/FuelPriceService.php` récupère les données marché, applique les formules de calcul et prépare les données d'affichage.
-4. `config/fuel.php` centralise les paramètres métier : accises, marges, TVA, métadonnées carburants, constantes de conversion et TTL du cache.
-5. Les vues Blade affichent le résultat dans une interface publique unique.
+2. `app/Http/Controllers/FuelController.php` orchestre la récupération des données.
+3. `app/Services/FuelPriceService.php` récupère les données de marché, applique les formules de calcul et prépare les prix théoriques.
+4. `app/Services/ObservedFuelPriceService.php` interroge l'API Open Data officielle du Ministère de l'Économie pour récupérer les moyennes nationales déclarées.
+5. `config/fuel.php` centralise les paramètres métier : accises 2026, marges, TVA, métadonnées carburants, constantes de conversion et durées de cache.
+6. Les vues Blade affichent le résultat dans une interface publique unique sans iframe tierce.
 
 ## Sources de données
 
-- **Cours Brent** : Yahoo Finance API, ticker `BZ=F`
-- **Heating Oil NYMEX** : Yahoo Finance API, ticker `HO=F`, utilisé pour le Gazole
-- **Taux EUR/USD** : [Frankfurter API](https://www.frankfurter.app), adossée aux données BCE
-- **Prix constatés à la pompe** : [prix-carburants.gouv.fr](https://prix-carburants.gouv.fr) via widgets `prix-carburant.eu`
+- **Cours Brent** : Yahoo Finance API (ticker `BZ=F`, dernières données disponibles)
+- **Heating Oil NYMEX** : Yahoo Finance API (ticker `HO=F`, proxy du gasoil ARA Rotterdam)
+- **Taux de change USD vers EUR** : [Frankfurter API](https://www.frankfurter.app), adossée aux taux de référence de la Banque Centrale Européenne (dernier jour ouvré)
+- **Prix moyens nationaux déclarés** : [data.economie.gouv.fr](https://data.economie.gouv.fr) — Jeu de données officiel DGCCRF / prix-carburants.gouv.fr (Licence Ouverte 2.0)
 
 ## Formules de calcul
 
@@ -69,7 +70,7 @@ Le flux applicatif est volontairement simple :
 Formule générale :
 
 ```text
-coût brut = (Brent $/baril / 159) x EUR/USD
+coût brut = (Brent $/baril / 159) x taux USD vers EUR
 + marge de raffinage spécifique par carburant
 + distribution 0.32 €/L
 + accise fixe 2026
@@ -81,14 +82,14 @@ coût brut = (Brent $/baril / 159) x EUR/USD
 Formule générale :
 
 ```text
-coût matière = (HO=F $/gallon / 3.78541) x EUR/USD
+coût matière = (HO=F $/gallon / 3.78541) x taux USD vers EUR
 + prime ARA 0.06 €/L
 + distribution 0.32 €/L
 + accise 0.61 €/L
 + TVA 20%
 ```
 
-Le Gazole utilise `HO=F` comme proxy du marché gasoil ARA Rotterdam, car cette source gratuite est la plus exploitable dans le périmètre du projet.
+Le Gazole utilise `HO=F` comme proxy du marché gasoil ARA Rotterdam.
 
 ### E85
 
@@ -106,7 +107,7 @@ coût matière = (15% x coût Brent/litre) + (85% x 0.42 €/L éthanol)
 Formule générale :
 
 ```text
-coût brut = (Brent $/baril / 159) x EUR/USD
+coût brut = (Brent $/baril / 159) x taux USD vers EUR
 + raffinage 0.04 €/L
 + distribution 0.10 €/L
 + accise 0.1710 €/L
@@ -117,7 +118,7 @@ Cette valeur de distribution correspond au paramétrage actuel du dépôt dans `
 
 ## Fiscalité fixe 2026
 
-Source de référence : UFIP, loi de finances 2026.
+Source de référence : UFIP, FIPECO, Direction Générale des Douanes, loi de finances 2026.
 
 | Carburant | Accise |
 | --- | ---: |
@@ -128,9 +129,7 @@ Source de référence : UFIP, loi de finances 2026.
 | E85 | 0.1186 €/L |
 | GPL | 0.1710 €/L |
 
-TVA :
-
-- `20%` sur `(produit HT + accise)`
+TVA : `20%` sur `(produit HT + accise)`.
 
 Ces valeurs doivent être révisées chaque année au **1er janvier**.
 
@@ -144,20 +143,19 @@ Le fichier `config/fuel.php` centralise notamment :
 - les marges de distribution
 - `ethanol_cost_per_liter`
 - `gasoil_ara_premium`
-- la fourchette affichée autour du prix théorique
+- la fourchette indicative affichée autour du prix théorique
 - la durée de cache des données de marché
 - la liste des carburants affichés
 
 ## Cache et fraîcheur des données
 
-Le projet utilise le cache Laravel pour éviter des appels externes à chaque requête.
+Le projet utilise le cache Laravel pour limiter les appels externes :
 
-- Driver attendu pour ce projet : `file`
-- TTL marché : `900` secondes, soit **15 minutes**
-- Données concernées :
-  - Brent
-  - Heating Oil `HO=F`
-  - EUR/USD
+- **Données marché** (Brent, HO=F, taux USD vers EUR) : cache fichier de **1 heure** (`3600` secondes).
+- **Prix moyens nationaux déclarés** (Open Data DGCCRF) :
+  - Cache courant : **30 minutes** (`1800` secondes) ;
+  - Dernier résultat valide de repli : **24 heures** (`86400` secondes) ;
+  - Temporisation d'échec : **1 minute** (`60` secondes).
 
 Configuration recommandée dans `.env` :
 
@@ -165,15 +163,12 @@ Configuration recommandée dans `.env` :
 CACHE_STORE=file
 ```
 
-Le TTL métier est défini dans `config/fuel.php`.
-
 ## Installation locale
 
 Pré-requis :
 
 - PHP 8.4
 - Composer
-- Laravel Herd
 
 Installation :
 
@@ -183,7 +178,17 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Ensuite, lancer le projet en local via Laravel Herd.
+Lancer les tests :
+
+```bash
+php artisan test
+```
+
+Démarrer le serveur local :
+
+```bash
+php artisan serve
+```
 
 ## Variables d'environnement utiles
 
@@ -217,7 +222,7 @@ Le déploiement actuel prévoit :
 - démarrage sur `0.0.0.0:$PORT`
 - healthcheck sur `/`
 
-Pensez à configurer dans Railway :
+Configuration recommandée dans Railway :
 
 - `APP_ENV=production`
 - `APP_DEBUG=false`
@@ -244,6 +249,7 @@ Vérifications à effectuer :
 - [CLCV](https://www.clcv.org)
 - [Frankfurter API](https://www.frankfurter.app)
 - [Prix des carburants en France](https://prix-carburants.gouv.fr)
+- [Portail Open Data du Ministère de l'Économie](https://data.economie.gouv.fr)
 
 ## Structure du projet
 
@@ -251,6 +257,7 @@ Vérifications à effectuer :
 app/
   Http/Controllers/FuelController.php
   Services/FuelPriceService.php
+  Services/ObservedFuelPriceService.php
 config/
   fuel.php
 public/
@@ -260,6 +267,9 @@ resources/
   views/fuel/index.blade.php
 routes/
   web.php
+tests/
+  Feature/
+  Unit/
 railway.toml
 Procfile
 ```
@@ -277,3 +287,4 @@ GoodGasoilPrice est conçu comme un outil public simple, transparent et pédagog
 ## Licence
 
 Projet distribué sous licence **MIT**.
+Données officielles de prix déclarés distribuées sous **Licence Ouverte 2.0** (DGCCRF / Ministère de l'Économie).
