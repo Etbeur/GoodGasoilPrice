@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -26,18 +27,15 @@ class FuelPriceService
     private const YAHOO_FINANCE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/BZ=F';
 
     /**
-     * URL de l'API Frankfurter pour le taux USD vers EUR.
-     * API adossée aux données de référence de la BCE (dernier jour ouvré), gratuite, sans clé requise.
+     * URL de l'API Frankfurter v2 officielle pour le taux USD vers EUR issu de la BCE.
      */
-    private const FRANKFURTER_URL = 'https://api.frankfurter.app/latest?from=USD&to=EUR';
+    private const FRANKFURTER_URL = 'https://api.frankfurter.dev/v2/rates?base=USD&quotes=EUR&providers=ECB&expand=providers';
 
     /**
      * URL de l'API Yahoo Finance pour le Heating Oil NYMEX (ticker HO=F).
-     * Cotation en USD par gallon US — proxy du gasoil ARA Rotterdam.
-     * HO=F (ULSD, Ultra Low Sulfur Diesel) est fortement corrélé à l'ICE Gasoil
-     * et constitue la meilleure alternative gratuite disponible sur Yahoo Finance.
-     * Utilisé exclusivement pour le calcul du Gazole, en remplacement du Brent.
-     * Note : ICE Low Sulphur Gasoil Futures (LSG=F) n'est pas disponible sur Yahoo Finance.
+     * Cotation en USD par gallon US — indicateur de repli du marché américain (NY Harbor ULSD).
+     * HO=F (ULSD, Ultra Low Sulfur Diesel) est un distillat américain corrélé aux marchés mondiaux,
+     * utilisé comme repère indicatif en l'absence de flux public temps réel pour la cotation ARA.
      */
     private const YAHOO_GASOIL_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/HO=F';
 
@@ -46,6 +44,13 @@ class FuelPriceService
      * Clé API gratuite requise dans .env : ALPHA_VANTAGE_KEY
      */
     private const ALPHA_VANTAGE_URL = 'https://www.alphavantage.co/query';
+
+    /**
+     * Clés de cache pour le taux de change USD vers EUR.
+     */
+    public const CACHE_KEY_USD_EUR = 'usd_eur_rate_data';
+
+    public const CACHE_KEY_USD_EUR_LAST_VALID = 'usd_eur_last_valid_data';
 
     /**
      * Durée de mise en cache des données marché (en secondes).
@@ -69,7 +74,9 @@ class FuelPriceService
      *   carburants: array,
      *   brent_usd: float|null,
      *   usd_eur: float|null,
-     *   gasoil_rotterdam_usd: float|null,
+     *   usd_eur_date: string|null,
+     *   gasoil_nymex_usd: float|null,
+     *   gazole_source_type: string,
      *   mise_a_jour: string,
      *   sources: array,
      *   erreur: string|null
@@ -77,31 +84,39 @@ class FuelPriceService
      */
     public function getPrixTheorique(): array
     {
-        // Récupération des données marché (avec cache 1 heure)
-        $brentUsd = $this->getBrentPrice();
-        $usdEur = $this->getUsdEurRate();
-        $gasoilUsdPerGallon = $this->getGasoilRotterdamPrice(); // HO=F en USD/gallon, null si indisponible (fallback Brent)
+        // Récupération des données marché (avec cache 1 heure et fallback)
+        $brentData = $this->getBrentData();
+        $usdEurData = $this->getUsdEurData();
+        $gasoilNymexData = $this->getGasoilNymexData();
 
-        // Si les données marché de base sont indisponibles, on retourne une erreur propre
-        if ($brentUsd === null || $usdEur === null) {
+        // Si le Brent ou le taux de change est indisponible, calcul impossible
+        if ($brentData === null || $usdEurData === null) {
             return $this->reponseErreur(
                 'Les données de marché sont temporairement indisponibles. Veuillez réessayer dans quelques minutes.'
             );
         }
 
+        $brentUsd = $brentData['price'];
+        $usdEur = $usdEurData['rate'];
+        $usdEurDate = $usdEurData['date'];
+        $gasoilUsdPerGallon = $gasoilNymexData['price'] ?? null;
+        $gazoleSourceType = ($gasoilUsdPerGallon !== null) ? 'nymex' : 'brent_fallback';
+
         // Calcul du prix théorique pour chaque carburant configuré
         $carburants = [];
         foreach (config('fuel.carburants') as $cle => $meta) {
-            $carburants[$cle] = $this->calculerPrixCarburant($cle, $brentUsd, $usdEur, $meta, $gasoilUsdPerGallon);
+            $carburants[$cle] = $this->calculerPrixCarburant($cle, $brentUsd, $usdEur, $meta, $gasoilNymexData, $brentData);
         }
 
         return [
             'carburants' => $carburants,
             'brent_usd' => round($brentUsd, 2),
             'usd_eur' => round($usdEur, 4),
-            'gasoil_rotterdam_usd' => $gasoilUsdPerGallon !== null ? round($gasoilUsdPerGallon, 4) : null,
+            'usd_eur_date' => $usdEurDate,
+            'gasoil_nymex_usd' => $gasoilUsdPerGallon !== null ? round($gasoilUsdPerGallon, 4) : null,
+            'gazole_source_type' => $gazoleSourceType,
             'mise_a_jour' => now()->timezone('Europe/Paris')->format('d/m/Y à H:i'),
-            'sources' => $this->getSources($gasoilUsdPerGallon !== null),
+            'sources' => $this->getSources($gazoleSourceType),
             'erreur' => null,
         ];
     }
@@ -111,64 +126,78 @@ class FuelPriceService
     // -------------------------------------------------------------------------
 
     /**
-     * Retourne le cours du pétrole Brent en USD.
-     * Source principale : Yahoo Finance (BZ=F).
-     * Fallback : Alpha Vantage si Yahoo Finance échoue.
-     * Résultat mis en cache 1 heure.
+     * Retourne les données du pétrole Brent (cours en USD et date de marché).
      *
-     * @return float|null Cours en USD, ou null si toutes les sources échouent
+     * @return array{price: float, date: string|null}|null
      */
-    private function getBrentPrice(): ?float
+    public function getBrentData(): ?array
     {
-        return Cache::remember('brent_price', $this->cacheTtl, function () {
+        return Cache::remember('brent_data', $this->cacheTtl, function () {
             // Tentative 1 : Yahoo Finance (gratuit, sans clé)
-            $prix = $this->fetchBrentYahoo();
+            $data = $this->fetchBrentYahoo();
 
-            if ($prix !== null) {
-                return $prix;
+            if ($data !== null) {
+                return $data;
             }
 
             // Tentative 2 : Alpha Vantage (fallback, clé requise dans .env)
             Log::warning('[FuelService] Yahoo Finance indisponible, tentative Alpha Vantage');
-            $prix = $this->fetchBrentAlphaVantage();
+            $data = $this->fetchBrentAlphaVantage();
 
-            if ($prix === null) {
+            if ($data === null) {
                 Log::error('[FuelService] Impossible de récupérer le cours du Brent (toutes sources épuisées)');
             }
 
-            return $prix;
+            return $data;
         });
     }
 
+    /**
+     * Retourne le cours du Brent seul (compatibilité).
+     */
+    public function getBrentPrice(): ?float
+    {
+        $data = $this->getBrentData();
+
+        return $data['price'] ?? null;
+    }
+
     // -------------------------------------------------------------------------
-    // Récupération de la cotation Gasoil Rotterdam (proxy NYMEX HO=F)
+    // Récupération de la cotation Gazole NYMEX (indicateur HO=F)
     // -------------------------------------------------------------------------
 
     /**
-     * Retourne la cotation Heating Oil NYMEX en USD par gallon.
-     * Ticker Yahoo Finance : HO=F — proxy du marché ARA (Amsterdam-Rotterdam-Anvers).
-     * Résultat mis en cache 1 heure.
+     * Retourne les données de cotation Heating Oil NYMEX (USD/gallon et date).
      *
-     * @return float|null Cotation en USD/gallon, ou null si indisponible
+     * @return array{price: float, date: string|null}|null
      */
-    private function getGasoilRotterdamPrice(): ?float
+    public function getGasoilNymexData(): ?array
     {
-        return Cache::remember('gasoil_rotterdam_price', $this->cacheTtl, function () {
-            $prix = $this->fetchGasoilRotterdamYahoo();
+        return Cache::remember('gasoil_nymex_data', $this->cacheTtl, function () {
+            $data = $this->fetchGasoilNymexYahoo();
 
-            if ($prix === null) {
-                Log::warning('[FuelService] Cotation HO=F indisponible — fallback Brent activé pour le Gazole');
+            if ($data === null) {
+                Log::warning('[FuelService] Cotation HO=F indisponible — repli Brent explicite activé pour le Gazole');
             }
 
-            return $prix;
+            return $data;
         });
+    }
+
+    public function getGasoilNymexPrice(): ?float
+    {
+        $data = $this->getGasoilNymexData();
+
+        return $data['price'] ?? null;
     }
 
     /**
      * Récupère la cotation Heating Oil NYMEX depuis Yahoo Finance.
      * Ticker : HO=F — unité retournée : USD par gallon US.
+     *
+     * @return array{price: float, date: string}|null
      */
-    private function fetchGasoilRotterdamYahoo(): ?float
+    public function fetchGasoilNymexYahoo(): ?array
     {
         try {
             $reponse = Http::timeout(10)
@@ -188,14 +217,26 @@ class FuelPriceService
 
             $donnees = $reponse->json();
             $prix = $donnees['chart']['result'][0]['meta']['regularMarketPrice'] ?? null;
+            $timestamp = $donnees['chart']['result'][0]['meta']['regularMarketTime'] ?? null;
 
-            if ($prix === null || $prix <= 0) {
-                Log::warning('[FuelService] Cotation HO=F introuvable dans la réponse JSON Yahoo');
+            if ($prix === null || ! is_numeric($prix) || ! is_finite((float) $prix) || (float) $prix <= 0) {
+                Log::warning('[FuelService] Cotation HO=F introuvable ou invalide dans la réponse JSON Yahoo');
 
                 return null;
             }
 
-            return (float) $prix;
+            if (! is_int($timestamp) || $timestamp <= 0 || $timestamp > now()->timestamp) {
+                Log::warning('[FuelService] Horodatage HO=F introuvable ou invalide dans la réponse JSON Yahoo');
+
+                return null;
+            }
+
+            $date = Carbon::createFromTimestamp($timestamp, 'Europe/Paris')->format('d/m/Y à H:i');
+
+            return [
+                'price' => (float) $prix,
+                'date' => $date,
+            ];
 
         } catch (\Throwable $e) {
             Log::warning('[FuelService] Cotation HO=F Yahoo Finance indisponible', [
@@ -209,8 +250,10 @@ class FuelPriceService
     /**
      * Récupère le cours du Brent depuis Yahoo Finance (API non officielle).
      * Symbole : BZ=F (Brent Crude Oil Futures).
+     *
+     * @return array{price: float, date: string}|null
      */
-    private function fetchBrentYahoo(): ?float
+    public function fetchBrentYahoo(): ?array
     {
         try {
             $reponse = Http::timeout(10)
@@ -230,14 +273,26 @@ class FuelPriceService
 
             $donnees = $reponse->json();
             $prix = $donnees['chart']['result'][0]['meta']['regularMarketPrice'] ?? null;
+            $timestamp = $donnees['chart']['result'][0]['meta']['regularMarketTime'] ?? null;
 
-            if ($prix === null || $prix <= 0) {
-                Log::warning('[FuelService] Cours Brent Yahoo introuvable dans la réponse JSON');
+            if ($prix === null || ! is_numeric($prix) || ! is_finite((float) $prix) || (float) $prix <= 0) {
+                Log::warning('[FuelService] Cours Brent Yahoo introuvable ou invalide dans la réponse JSON');
 
                 return null;
             }
 
-            return (float) $prix;
+            if (! is_int($timestamp) || $timestamp <= 0 || $timestamp > now()->timestamp) {
+                Log::warning('[FuelService] Horodatage Brent Yahoo introuvable ou invalide dans la réponse JSON');
+
+                return null;
+            }
+
+            $date = Carbon::createFromTimestamp($timestamp, 'Europe/Paris')->format('d/m/Y à H:i');
+
+            return [
+                'price' => (float) $prix,
+                'date' => $date,
+            ];
 
         } catch (\Throwable $e) {
             Log::warning('[FuelService] Cours Brent Yahoo Finance indisponible', [
@@ -250,8 +305,10 @@ class FuelPriceService
 
     /**
      * Récupère le cours du Brent depuis Alpha Vantage (fallback).
+     *
+     * @return array{price: float, date: string|null}|null
      */
-    private function fetchBrentAlphaVantage(): ?float
+    public function fetchBrentAlphaVantage(): ?array
     {
         $cle = env('ALPHA_VANTAGE_KEY');
 
@@ -276,14 +333,26 @@ class FuelPriceService
 
             $donnees = $reponse->json();
             $derniere = $donnees['data'][0]['value'] ?? null;
+            $dateRaw = $donnees['data'][0]['date'] ?? null;
 
-            if ($derniere === null || $derniere === '.' || (float) $derniere <= 0) {
-                Log::warning('[FuelService] Cours Brent Alpha Vantage introuvable dans la réponse JSON');
+            if ($derniere === null || $derniere === '.' || ! is_numeric($derniere) || ! is_finite((float) $derniere) || (float) $derniere <= 0) {
+                Log::warning('[FuelService] Cours Brent Alpha Vantage introuvable ou invalide dans la réponse JSON');
 
                 return null;
             }
 
-            return (float) $derniere;
+            if (! $this->isValidDate($dateRaw)) {
+                Log::warning('[FuelService] Date cours Brent Alpha Vantage introuvable ou invalide');
+
+                return null;
+            }
+
+            $formattedDate = Carbon::parse($dateRaw)->format('d/m/Y');
+
+            return [
+                'price' => (float) $derniere,
+                'date' => $formattedDate,
+            ];
 
         } catch (\Throwable $e) {
             Log::warning('[FuelService] Cours Brent Alpha Vantage indisponible', [
@@ -295,49 +364,194 @@ class FuelPriceService
     }
 
     // -------------------------------------------------------------------------
-    // Récupération du taux de change USD vers EUR
+    // Récupération du taux de change USD vers EUR (Frankfurter v2 / BCE)
     // -------------------------------------------------------------------------
 
     /**
-     * Retourne le taux de change USD vers EUR depuis l'API Frankfurter (BCE, dernier jour ouvré).
-     * Gratuit, sans clé, adossé aux taux de référence de la Banque Centrale Européenne.
-     * Résultat mis en cache 1 heure.
+     * Retourne le taux de change USD vers EUR et sa date de référence (BCE).
+     * Source : API Frankfurter v2 (adossée aux publications de la Banque Centrale Européenne).
+     * Cache 1 heure (normal) et cache 7 jours (repli si l'API est temporairement indisponible).
      *
-     * @return float|null Nombre d'euros pour 1 USD, ou null si indisponible
+     * @return array{rate: float, date: string, provider_key: string}|null
      */
-    private function getUsdEurRate(): ?float
+    public function getUsdEurData(): ?array
     {
-        return Cache::remember('usd_eur_rate', $this->cacheTtl, function () {
-            try {
-                $reponse = Http::timeout(10)->get(self::FRANKFURTER_URL);
+        // 1. Tenter le cache normal 1 heure
+        $cached = Cache::get(self::CACHE_KEY_USD_EUR);
+        if ($this->isValidCachedRate($cached)) {
+            return $cached;
+        }
 
-                if (! $reponse->successful()) {
-                    Log::error('[FuelService] Frankfurter API HTTP '.$reponse->status());
+        // 2. Appel API Frankfurter v2
+        try {
+            $reponse = Http::timeout(10)->get(self::FRANKFURTER_URL);
 
-                    return null;
-                }
-
+            if ($reponse->successful()) {
                 $donnees = $reponse->json();
+                $result = $this->extractFrankfurterV2Rate($donnees);
 
-                // Structure Frankfurter pour from=USD&to=EUR : {"amount":1.0,"base":"USD","date":"...","rates":{"EUR":0.8645}}
-                $taux = $donnees['rates']['EUR'] ?? null;
+                if ($result !== null) {
+                    Cache::put(self::CACHE_KEY_USD_EUR, $result, $this->cacheTtl);
+                    Cache::put(self::CACHE_KEY_USD_EUR_LAST_VALID, $result, 86400 * 7);
 
-                if ($taux === null || ! is_numeric($taux) || (float) $taux <= 0) {
-                    Log::error('[FuelService] Taux USD vers EUR introuvable dans la réponse Frankfurter');
+                    return $result;
+                }
+            }
 
-                    return null;
+            Log::error('[FuelService] Frankfurter v2 API réponse invalide ou HTTP '.$reponse->status());
+
+        } catch (\Throwable $e) {
+            Log::error('[FuelService] Taux USD vers EUR Frankfurter v2 API indisponible', [
+                'exception_type' => $e::class,
+            ]);
+        }
+
+        // 3. Fallback sur le dernier taux valide conservé
+        $lastValid = Cache::get(self::CACHE_KEY_USD_EUR_LAST_VALID);
+        if ($this->isValidCachedRate($lastValid)) {
+            Log::warning('[FuelService] Utilisation du dernier taux de change USD vers EUR valide en cache', [
+                'date_source' => $lastValid['date'],
+            ]);
+
+            return $lastValid;
+        }
+
+        return null;
+    }
+
+    /**
+     * Valide et extrait le taux USD vers EUR issu de l'observation BCE depuis la réponse Frankfurter v2.
+     *
+     * @return array{rate: float, date: string, provider_key: string}|null
+     */
+    public function extractFrankfurterV2Rate(mixed $jsonData): ?array
+    {
+        if (! is_array($jsonData) || ! array_is_list($jsonData) || empty($jsonData)) {
+            return null;
+        }
+
+        foreach ($jsonData as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $base = $item['base'] ?? null;
+            $quote = $item['quote'] ?? null;
+            $rate = $item['rate'] ?? null;
+            $date = $item['date'] ?? null;
+            $providers = $item['providers'] ?? null;
+
+            if ($base !== 'USD' || $quote !== 'EUR') {
+                continue;
+            }
+
+            if (! is_numeric($rate) || ! is_finite((float) $rate) || (float) $rate <= 0) {
+                continue;
+            }
+
+            if (! $this->isValidDate($date)) {
+                continue;
+            }
+
+            if (! is_array($providers) || ! array_is_list($providers) || empty($providers)) {
+                continue;
+            }
+
+            // Recherche stricte de l'observation dont key === 'ECB'
+            foreach ($providers as $provider) {
+                if (! is_array($provider)) {
+                    continue;
                 }
 
-                return (float) $taux;
+                // Strictement le champ 'key' et la valeur 'ECB'
+                if (($provider['key'] ?? null) !== 'ECB') {
+                    continue;
+                }
 
-            } catch (\Throwable $e) {
-                Log::error('[FuelService] Taux USD vers EUR Frankfurter API indisponible', [
-                    'exception_type' => $e::class,
-                ]);
+                $ecbRate = $provider['rate'] ?? null;
+                $ecbDate = $provider['date'] ?? null;
 
-                return null;
+                if (! is_numeric($ecbRate) || ! is_finite((float) $ecbRate) || (float) $ecbRate <= 0) {
+                    continue;
+                }
+
+                if (! $this->isValidDate($ecbDate)) {
+                    continue;
+                }
+
+                return [
+                    'rate' => (float) $ecbRate,
+                    'date' => (string) $ecbDate,
+                    'provider_key' => 'ECB',
+                ];
             }
-        });
+        }
+
+        return null;
+    }
+
+    /**
+     * Valide l'intégrité et la provenance d'une donnée de taux en cache.
+     */
+    public function isValidCachedRate(mixed $cached): bool
+    {
+        if (! is_array($cached)) {
+            return false;
+        }
+
+        if (! isset($cached['rate'], $cached['date'], $cached['provider_key'])) {
+            return false;
+        }
+
+        if (! is_numeric($cached['rate']) || ! is_finite((float) $cached['rate']) || (float) $cached['rate'] <= 0) {
+            return false;
+        }
+
+        if (! $this->isValidDate($cached['date'])) {
+            return false;
+        }
+
+        if ($cached['provider_key'] !== 'ECB') {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Valide strictement une date au format YYYY-MM-DD dans le calendrier réel et non future.
+     */
+    public function isValidDate(mixed $date): bool
+    {
+        if (! is_string($date) || $date === '' || ! preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $matches)) {
+            return false;
+        }
+
+        $year = (int) $matches[1];
+        $month = (int) $matches[2];
+        $day = (int) $matches[3];
+
+        if (! checkdate($month, $day, $year)) {
+            return false;
+        }
+
+        // Rejeter toute date future
+        $today = now()->timezone('Europe/Paris')->format('Y-m-d');
+        if ($date > $today) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Retourne le taux de change USD vers EUR seul (pour compatibilité interne).
+     */
+    public function getUsdEurRate(): ?float
+    {
+        $data = $this->getUsdEurData();
+
+        return $data['rate'] ?? null;
     }
 
     // -------------------------------------------------------------------------
@@ -347,45 +561,53 @@ class FuelPriceService
     /**
      * Calcule le prix théorique TTC d'un carburant donné.
      *
-     * Formule générale (source : UFIP / FIPECO / CLCV) :
-     *   1. Coût matière par litre (méthode selon filière)
-     *   2. + Marge distribution (0.10–0.32 €/L selon filière)
-     *   3. + Accise fixe (loi de finances 2026)
-     *   4. TVA 20 % sur (HT + accise)
-     *
      * @param  string  $cle  Identifiant du carburant (ex: 'sp95_e10')
      * @param  float  $brentUsd  Cours du Brent en USD/baril
      * @param  float  $usdEur  Taux de change USD vers EUR (nombre d'euros pour 1 USD)
      * @param  array  $meta  Métadonnées du carburant (nom, description, couleur)
-     * @param  float|null  $gasoilUsdPerGallon  Cotation NYMEX HO=F en USD/gallon (null = fallback Brent)
+     * @param  array|null  $gasoilNymexData  Cotation NYMEX HO=F (null = fallback Brent)
+     * @param  array|null  $brentData  Données de marché du Brent
      */
     private function calculerPrixCarburant(
         string $cle,
         float $brentUsd,
         float $usdEur,
         array $meta,
-        ?float $gasoilUsdPerGallon = null
+        ?array $gasoilNymexData = null,
+        ?array $brentData = null
     ): array {
 
         // -- Étape 1 : Coût matière par litre (méthode selon filière) ----------
 
-        if ($cle === 'gazole' && $gasoilUsdPerGallon !== null) {
-
-            // --- Gazole : cotation NYMEX Heating Oil (HO=F) — proxy gasoil ARA Rotterdam ---
-            $litresParGallon = config('fuel.gasoil_litres_per_gallon', 3.78541);
-            $araPremium = config('fuel.gasoil_ara_premium', 0.06);
-            $coutAvantDistrib = ($gasoilUsdPerGallon / $litresParGallon) * $usdEur + $araPremium;
-            $labelMatiere = 'Cotation NYMEX Heating Oil (proxy gasoil ARA)';
-            $lsgUsdTonne = round($gasoilUsdPerGallon, 4);
-
+        if ($cle === 'gazole') {
+            if ($gasoilNymexData !== null && isset($gasoilNymexData['price']) && (float) $gasoilNymexData['price'] > 0) {
+                // Chemin nominal : NY Harbor ULSD
+                $gasoilUsdPerGallon = (float) $gasoilNymexData['price'];
+                $litresParGallon = config('fuel.gasoil_litres_per_gallon', 3.785411784);
+                $coutAvantDistrib = ($gasoilUsdPerGallon / $litresParGallon) * $usdEur;
+                $sourceType = 'nymex';
+                $sourceDate = $gasoilNymexData['date'] ?? null;
+                $labelMatiere = 'NY Harbor ULSD (indicateur US)';
+                $nymexUsdGallon = round($gasoilUsdPerGallon, 4);
+                $nymexConvertiEur = round($coutAvantDistrib, 4);
+            } else {
+                // Chemin de repli explicite : Brent + marge de raffinage gazole
+                $litresParBaril = config('fuel.litres_par_baril', 159);
+                $coutBrutEur = ($brentUsd / $litresParBaril) * $usdEur;
+                $margeRaffinage = config('fuel.marges_raffinage.gazole', 0.43);
+                $coutAvantDistrib = $coutBrutEur + $margeRaffinage;
+                $sourceType = 'brent_fallback';
+                $sourceDate = $brentData['date'] ?? null;
+                $labelMatiere = 'Brent + marge raffinage (repli)';
+                $nymexUsdGallon = null;
+                $nymexConvertiEur = null;
+            }
         } else {
-
-            // --- Formule standard : Brent + marge raffinage ---
-            // Brent USD → EUR/litre : (USD/baril / 159 litres) × taux USD vers EUR
+            // Formule standard : Brent + marge raffinage
             $litresParBaril = config('fuel.litres_par_baril', 159);
             $coutBrutEur = ($brentUsd / $litresParBaril) * $usdEur;
 
-            // -- Exception E85 : formule hybride pétrole + éthanol agricole ----
+            // Exception E85 : formule hybride pétrole + éthanol agricole
             if ($cle === 'e85') {
                 $ethanolEurL = config('fuel.ethanol_cost_per_liter', 0.42);
                 $coutBrutEur = (0.15 * $coutBrutEur) + (0.85 * $ethanolEurL);
@@ -393,8 +615,11 @@ class FuelPriceService
 
             $margeRaffinage = config("fuel.marges_raffinage.{$cle}", 0.07);
             $coutAvantDistrib = $coutBrutEur + $margeRaffinage;
+            $sourceType = 'brent';
+            $sourceDate = $brentData['date'] ?? null;
             $labelMatiere = 'Brut + raffinage';
-            $lsgUsdTonne = null;
+            $nymexUsdGallon = null;
+            $nymexConvertiEur = null;
         }
 
         // -- Étape 2 : Marge de distribution ----------------------------------
@@ -421,6 +646,10 @@ class FuelPriceService
             'description' => $meta['description'],
             'couleur' => $meta['couleur'],
 
+            // Traçabilité de la source
+            'source_type' => $sourceType,
+            'source_date' => $sourceDate,
+
             // Prix final TTC et fourchette
             'prix_ttc' => round($prixTtc, 3),
             'prix_min' => round($prixTtc - $fourchette, 3),
@@ -429,8 +658,9 @@ class FuelPriceService
             // Libellé dynamique de la première ligne de décomposition
             'label_matiere' => $labelMatiere,
 
-            // Cotation en USD/gallon pour le Gazole
-            'lsg_usd_tonne' => $lsgUsdTonne,
+            // Cotation en USD/gallon pour le Gazole et valeur convertie EUR/L
+            'nymex_usd_gallon' => $nymexUsdGallon,
+            'nymex_converti_eur' => $nymexConvertiEur,
 
             // Décomposition pour l'affichage pédagogique
             'detail' => [
@@ -449,18 +679,20 @@ class FuelPriceService
     /**
      * Retourne la liste des sources de données utilisées pour l'affichage.
      */
-    private function getSources(bool $gasoilIce = false): array
+    private function getSources(string $gazoleSourceType = 'nymex'): array
     {
         $sources = [
             'Cours Brent' => 'Yahoo Finance (BZ=F) — marché à terme ICE (dernières données disponibles)',
-            'Taux de change USD vers EUR' => 'Frankfurter API — taux de référence de la Banque Centrale Européenne (dernier jour ouvré)',
+            'Taux de change USD vers EUR' => 'Frankfurter API v2 — taux de référence de la Banque Centrale Européenne (BCE)',
             'Accises (TICPE)' => 'UFIP / FIPECO / DGDDI — Loi de finances 2026',
             'Marges raffinage' => 'Estimations moyennes 2025-2026 (UFIP / IFPen)',
             'Marge distribution' => 'CLCV — Rapport marges distribution mars 2026',
         ];
 
-        if ($gasoilIce) {
-            $sources['Gazole — proxy NYMEX'] = 'Yahoo Finance (HO=F) — Heating Oil NYMEX (ULSD), proxy du gasoil ARA Rotterdam';
+        if ($gazoleSourceType === 'nymex') {
+            $sources['Gazole — indicateur US'] = 'Yahoo Finance (HO=F) — NY Harbor ULSD (indicateur de repli du marché américain, non ARA)';
+        } elseif ($gazoleSourceType === 'brent_fallback') {
+            $sources['Gazole — repli'] = 'Brent ICE (BZ=F) + marge de raffinage moyenne — repli temporaire suite à indisponibilité de l\'indicateur US';
         }
 
         return $sources;
@@ -475,9 +707,11 @@ class FuelPriceService
             'carburants' => [],
             'brent_usd' => null,
             'usd_eur' => null,
-            'gasoil_rotterdam_usd' => null,
+            'usd_eur_date' => null,
+            'gasoil_nymex_usd' => null,
+            'gazole_source_type' => 'unavailable',
             'mise_a_jour' => now()->timezone('Europe/Paris')->format('d/m/Y à H:i'),
-            'sources' => $this->getSources(),
+            'sources' => $this->getSources('none'),
             'erreur' => $message,
         ];
     }

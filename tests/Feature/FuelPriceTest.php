@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Services\ObservedFuelPriceService;
+use Carbon\Carbon;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -14,10 +16,22 @@ class FuelPriceTest extends TestCase
         parent::setUp();
         Http::preventStrayRequests();
         Cache::flush();
+        Carbon::setTestNow(Carbon::parse('2026-08-15 12:00:00', 'Europe/Paris'));
     }
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
+    /**
+     * Configure tous les fakes HTTP nominaux nécessaires pour le rendu complet de la page.
+     */
     private function fakeAllNominalApis(): void
     {
+        $timestamp = Carbon::now()->timestamp;
+
         Http::fake([
             // Yahoo Finance Brent
             'https://query1.finance.yahoo.com/v8/finance/chart/BZ=F*' => Http::response([
@@ -26,6 +40,7 @@ class FuelPriceTest extends TestCase
                         [
                             'meta' => [
                                 'regularMarketPrice' => 88.50,
+                                'regularMarketTime' => $timestamp,
                             ],
                         ],
                     ],
@@ -39,19 +54,28 @@ class FuelPriceTest extends TestCase
                         [
                             'meta' => [
                                 'regularMarketPrice' => 2.45,
+                                'regularMarketTime' => $timestamp,
                             ],
                         ],
                     ],
                 ],
             ], 200),
 
-            // Frankfurter API USD vers EUR
-            'https://api.frankfurter.app/latest?from=USD&to=EUR' => Http::response([
-                'amount' => 1.0,
-                'base' => 'USD',
-                'date' => '2026-08-14',
-                'rates' => [
-                    'EUR' => 0.8645,
+            // Frankfurter API v2 USD vers EUR
+            'https://api.frankfurter.dev/v2/rates*' => Http::response([
+                [
+                    'base' => 'USD',
+                    'quote' => 'EUR',
+                    'rate' => 0.8645,
+                    'date' => '2026-08-14',
+                    'providers' => [
+                        [
+                            'key' => 'ECB',
+                            'name' => 'European Central Bank',
+                            'date' => '2026-08-14',
+                            'rate' => 0.8645,
+                        ],
+                    ],
                 ],
             ], 200),
 
@@ -132,7 +156,7 @@ class FuelPriceTest extends TestCase
     }
 
     /**
-     * 16. Libellé explicite "USD vers EUR" et formatage
+     * 16. Libellé explicite du taux de référence BCE et date de valeur
      */
     public function test_explicit_usd_to_eur_exchange_rate_label(): void
     {
@@ -141,13 +165,110 @@ class FuelPriceTest extends TestCase
         $response = $this->get('/');
 
         $response->assertStatus(200);
-        $response->assertSee('Taux de change USD vers EUR', false);
+        $response->assertSee('Taux de référence BCE', false);
         $response->assertSee('1 USD = 0,8645', false);
-        $response->assertDontSee('€ pour 1 $', false);
+        $response->assertSee('Date du taux BCE : 14/08/2026', false);
+        $response->assertSee('Page générée le', false);
+        $response->assertDontSee('Dernière valeur disponible', false);
     }
 
     /**
-     * Affichage des prix moyens nationaux déclarés et des métadonnées
+     * 16b. Contrôle strict et exact de la requête HTTP émise vers l'API officielle Frankfurter v2
+     */
+    public function test_frankfurter_v2_exact_request_parameters(): void
+    {
+        $this->fakeAllNominalApis();
+
+        $this->get('/');
+
+        Http::assertSent(function (Request $request) {
+            $url = $request->url();
+            $parsed = parse_url($url);
+
+            $hostMatches = ($parsed['host'] ?? '') === 'api.frankfurter.dev';
+            $pathMatches = ($parsed['path'] ?? '') === '/v2/rates';
+
+            parse_str($parsed['query'] ?? '', $queryParams);
+
+            $baseMatches = ($queryParams['base'] ?? null) === 'USD';
+            $quotesMatches = ($queryParams['quotes'] ?? null) === 'EUR';
+            $providersMatches = ($queryParams['providers'] ?? null) === 'ECB';
+            $expandMatches = ($queryParams['expand'] ?? null) === 'providers';
+
+            return $hostMatches && $pathMatches && $baseMatches && $quotesMatches && $providersMatches && $expandMatches;
+        });
+    }
+
+    /**
+     * 17. Rendu de la carte Gazole : texte explicite NY Harbor ULSD, valeur convertie et absence de fausse mention ARA
+     */
+    public function test_gazole_card_renders_nymex_note_without_ara_misleading_labels(): void
+    {
+        $this->fakeAllNominalApis();
+
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertSee('Prix calculé à partir du <strong>NY Harbor ULSD (HO=F)</strong>, indicateur de repli du marché américain (New York). Ce contrat reflète les distillats américains corrélés aux marchés mondiaux, mais ne constitue pas la cotation physique européenne ARA Rotterdam ni le coût d’approvisionnement réel en France.', false);
+        $response->assertSee('NYMEX HO=F&nbsp;: 2,4500&nbsp;USD/gallon', false);
+        $response->assertSee('Valeur convertie&nbsp;: 0,5595&nbsp;EUR/L', false);
+        $response->assertDontSee('proxy gasoil ARA', false);
+        $response->assertDontSee('prime ARA', false);
+        $response->assertDontSee('prix ARA', false);
+        $response->assertDontSee('temps réel européen', false);
+    }
+
+    /**
+     * 18. Rendu de la carte Gazole en mode repli explicite sur le Brent si HO=F échoue
+     */
+    public function test_gazole_card_renders_brent_fallback_explicitly_when_nymex_fails(): void
+    {
+        $timestamp = Carbon::now()->timestamp;
+
+        Http::fake([
+            // Yahoo Brent OK
+            'https://query1.finance.yahoo.com/v8/finance/chart/BZ=F*' => Http::response([
+                'chart' => [
+                    'result' => [
+                        [
+                            'meta' => [
+                                'regularMarketPrice' => 88.50,
+                                'regularMarketTime' => $timestamp,
+                            ],
+                        ],
+                    ],
+                ],
+            ], 200),
+
+            // Yahoo HO=F DOWN
+            'https://query1.finance.yahoo.com/v8/finance/chart/HO=F*' => Http::response(['error' => 'down'], 500),
+
+            // Frankfurter API v2
+            'https://api.frankfurter.dev/v2/rates*' => Http::response([
+                [
+                    'base' => 'USD',
+                    'quote' => 'EUR',
+                    'rate' => 0.8645,
+                    'date' => '2026-08-14',
+                    'providers' => [
+                        ['key' => 'ECB', 'date' => '2026-08-14', 'rate' => 0.8645],
+                    ],
+                ],
+            ], 200),
+
+            ObservedFuelPriceService::API_URL.'*' => Http::response(['total_count' => 0, 'results' => []], 200),
+        ]);
+
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertSee('Information repli :', false);
+        $response->assertSee('cette estimation est temporairement calculée à partir du <strong>cours du Brent</strong> avec marge de raffinage moyenne.', false);
+        $response->assertSee('Brent + marge raffinage (repli)', false);
+    }
+
+    /**
+     * 19. Affichage des prix moyens nationaux déclarés et des métadonnées
      */
     public function test_observed_national_averages_rendered_correctly(): void
     {
@@ -163,10 +284,12 @@ class FuelPriceTest extends TestCase
     }
 
     /**
-     * Affichage du message de repli lorsque le cache valide de repli est utilisé
+     * 20. Affichage du message de repli lorsque le cache valide de repli est utilisé
      */
     public function test_fallback_banner_displayed_when_using_cached_last_valid_result(): void
     {
+        $timestamp = Carbon::now()->timestamp;
+
         // 1. Préparer un jeu de données de repli dans le cache LAST_VALID
         $cachedData = [
             'status' => 'fresh',
@@ -189,13 +312,19 @@ class FuelPriceTest extends TestCase
         // 2. Simuler une panne de l'API Open Data
         Http::fake([
             'https://query1.finance.yahoo.com/v8/finance/chart/BZ=F*' => Http::response([
-                'chart' => ['result' => [['meta' => ['regularMarketPrice' => 88.50]]]],
+                'chart' => ['result' => [['meta' => ['regularMarketPrice' => 88.50, 'regularMarketTime' => $timestamp]]]],
             ], 200),
             'https://query1.finance.yahoo.com/v8/finance/chart/HO=F*' => Http::response([
-                'chart' => ['result' => [['meta' => ['regularMarketPrice' => 2.45]]]],
+                'chart' => ['result' => [['meta' => ['regularMarketPrice' => 2.45, 'regularMarketTime' => $timestamp]]]],
             ], 200),
-            'https://api.frankfurter.app/latest?from=USD&to=EUR' => Http::response([
-                'rates' => ['EUR' => 0.8645],
+            'https://api.frankfurter.dev/v2/rates*' => Http::response([
+                [
+                    'base' => 'USD',
+                    'quote' => 'EUR',
+                    'rate' => 0.8645,
+                    'date' => '2026-08-14',
+                    'providers' => [['key' => 'ECB', 'date' => '2026-08-14', 'rate' => 0.8645]],
+                ],
             ], 200),
             ObservedFuelPriceService::API_URL.'*' => Http::response(['error' => 'API down'], 500),
         ]);
@@ -208,19 +337,27 @@ class FuelPriceTest extends TestCase
     }
 
     /**
-     * Affichage du bloc d'indisponibilité propre lorsque aucune donnée observée n'est disponible
+     * 21. Affichage du bloc d'indisponibilité propre lorsque aucune donnée observée n'est disponible
      */
     public function test_clean_unavailable_block_displayed_when_no_data_available(): void
     {
+        $timestamp = Carbon::now()->timestamp;
+
         Http::fake([
             'https://query1.finance.yahoo.com/v8/finance/chart/BZ=F*' => Http::response([
-                'chart' => ['result' => [['meta' => ['regularMarketPrice' => 88.50]]]],
+                'chart' => ['result' => [['meta' => ['regularMarketPrice' => 88.50, 'regularMarketTime' => $timestamp]]]],
             ], 200),
             'https://query1.finance.yahoo.com/v8/finance/chart/HO=F*' => Http::response([
-                'chart' => ['result' => [['meta' => ['regularMarketPrice' => 2.45]]]],
+                'chart' => ['result' => [['meta' => ['regularMarketPrice' => 2.45, 'regularMarketTime' => $timestamp]]]],
             ], 200),
-            'https://api.frankfurter.app/latest?from=USD&to=EUR' => Http::response([
-                'rates' => ['EUR' => 0.8645],
+            'https://api.frankfurter.dev/v2/rates*' => Http::response([
+                [
+                    'base' => 'USD',
+                    'quote' => 'EUR',
+                    'rate' => 0.8645,
+                    'date' => '2026-08-14',
+                    'providers' => [['key' => 'ECB', 'date' => '2026-08-14', 'rate' => 0.8645]],
+                ],
             ], 200),
             ObservedFuelPriceService::API_URL.'*' => Http::response(['error' => 'API down'], 500),
         ]);

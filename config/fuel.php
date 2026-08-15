@@ -20,11 +20,11 @@ return [
     */
     'accises' => [
         'sp95_e10' => 0.6629,   // SP95-E10 — accise réduite car 10% éthanol, Source UFIP mars 2026
-        'sp95'     => 0.6829,   // SP95 (E5) — sans éthanol, même taux que SP98, Source UFIP mars 2026
-        'sp98'     => 0.6829,   // SP98 (E5) — Source UFIP mars 2026
-        'gazole'   => 0.6100,   // Gazole B7 — Source : Que Choisir 10/04/2026 et UFIP mars 2026
-        'e85'      => 0.1186,   // E85 (Superéthanol) — Source UFIP mars 2026
-        'gpl'      => 0.1710,   // GPL (Gaz de Pétrole Liquéfié) — Source UFIP 2026
+        'sp95' => 0.6829,   // SP95 (E5) — sans éthanol, même taux que SP98, Source UFIP mars 2026
+        'sp98' => 0.6829,   // SP98 (E5) — Source UFIP mars 2026
+        'gazole' => 0.6100,   // Gazole B7 — Source : Que Choisir 10/04/2026 et UFIP mars 2026
+        'e85' => 0.1186,   // E85 (Superéthanol) — Source UFIP mars 2026
+        'gpl' => 0.1710,   // GPL (Gaz de Pétrole Liquéfié) — Source UFIP 2026
     ],
 
     /*
@@ -47,11 +47,11 @@ return [
     */
     'marges_raffinage' => [
         'sp95_e10' => 0.07,   // SP95-E10 — marge raffinage moyenne 2025-2026
-        'sp95'     => 0.08,   // SP95     — légèrement supérieure (pas d'éthanol en charge)
-        'sp98'     => 0.09,   // SP98     — premium indice octane 98, Source UFIP/IFPen 2025-2026
-        'gazole'   => 0.43,   // Gazole   — coté Rotterdam + import France, cible ~2.30 €/L (CLCV mars 2026 : marge brute 32.9 ct/L)
-        'e85'      => 0.03,   // E85      — marge très réduite (majoritairement éthanol agricole)
-        'gpl'      => 0.04,   // GPL      — marge réduite (sous-produit raffinage)
+        'sp95' => 0.08,   // SP95     — légèrement supérieure (pas d'éthanol en charge)
+        'sp98' => 0.09,   // SP98     — premium indice octane 98, Source UFIP/IFPen 2025-2026
+        'gazole' => 0.43,   // Gazole   — marge raffinage moyenne si fallback Brent (CLCV mars 2026 : marge brute 32.9 ct/L)
+        'e85' => 0.03,   // E85      — marge très réduite (majoritairement éthanol agricole)
+        'gpl' => 0.04,   // GPL      — marge réduite (sous-produit raffinage)
     ],
 
     /*
@@ -67,11 +67,11 @@ return [
     */
     'marges_distribution' => [
         'sp95_e10' => 0.32,   // Essences — marge pleine : transport, CEE, TIRUERT inclus
-        'sp95'     => 0.32,   // Essences — idem SP95-E10
-        'sp98'     => 0.32,   // Essences — idem SP95-E10
-        'gazole'   => 0.32,   // Gazole   — marge pleine (CEE et TIRUERT élevés)
-        'e85'      => 0.10,   // E85      — production nationale, CEE réduits, logistique simplifiée
-        'gpl'      => 0.10,   // GPL      — stockage citerne, logistique simplifiée, pas de cotation Rotterdam
+        'sp95' => 0.32,   // Essences — idem SP95-E10
+        'sp98' => 0.32,   // Essences — idem SP95-E10
+        'gazole' => 0.32,   // Gazole   — marge pleine (CEE et TIRUERT élevés)
+        'e85' => 0.10,   // E85      — production nationale, CEE réduits, logistique simplifiée
+        'gpl' => 0.10,   // GPL      — stockage citerne, logistique simplifiée, pas de cotation Rotterdam
     ],
 
     /*
@@ -84,21 +84,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Paramètres spécifiques au Gazole (proxy NYMEX Heating Oil HO=F)
+    | Paramètres spécifiques au Gazole (indicateur NYMEX Heating Oil HO=F)
     |--------------------------------------------------------------------------
-    | ICE Low Sulphur Gasoil Futures (LSG=F) n'étant pas disponible sur
-    | Yahoo Finance en accès gratuit, on utilise le Heating Oil NYMEX (HO=F)
-    | comme proxy. Il s'agit du distillat ULSD (Ultra Low Sulfur Diesel) coté
-    | à New York, fortement corrélé au gasoil ARA Rotterdam.
+    | En l'absence de flux ouvert et légalement réutilisable pour la cotation
+    | ICE Low Sulphur Gasoil Futures (marché physique ARA Rotterdam),
+    | l'application utilise la cotation Heating Oil NYMEX (HO=F) comme
+    | indicateur de repli du marché américain (New York Harbor ULSD).
     |
     | HO=F est coté en USD par gallon US (1 gallon = 3.78541 litres).
-    | La cotation inclut le raffinage : aucune marge raffinage ajoutée.
+    | Il s'agit d'un indicateur de distillat américain corrélé aux marchés mondiaux,
+    | mais ce n'est pas la cotation ARA et aucune prime fixe n'y est ajoutée.
+    |
+    | Formule de repli : (HO_USD_gallon / 3.78541) * taux_USD_EUR + distribution + accise.
     | Source : NYMEX / CME Group via Yahoo Finance.
     */
-    'gasoil_density'           => 0.845,    // kg/litre — constante physique gazole B7 (IFPen, référence)
-    'gasoil_litres_per_gallon' => 3.78541,  // litres par gallon US — constante de conversion NYMEX
-    'gasoil_yahoo_ticker'      => 'HO=F',   // Heating Oil NYMEX (ULSD) — proxy gasoil ARA Rotterdam
-    'gasoil_ara_premium'       => 0.06,     // prime ARA en €/L : spread structurel US→Europe (géographie, stocks, TIRUERT)
+    'gasoil_density' => 0.845,         // kg/litre — constante physique gazole B7 (IFPen, référence)
+    'gasoil_litres_per_gallon' => 3.785411784,   // litres par gallon US — constante de conversion exacte
+    'gasoil_yahoo_ticker' => 'HO=F',        // NY Harbor ULSD — indicateur de repli du marché américain
 
     /*
     |--------------------------------------------------------------------------
@@ -136,34 +138,34 @@ return [
     */
     'carburants' => [
         'sp95_e10' => [
-            'nom'         => 'SP95-E10',
+            'nom' => 'SP95-E10',
             'description' => 'Sans-plomb 95, contient jusqu\'à 10% d\'éthanol',
-            'couleur'     => '#27ae60', // vert
+            'couleur' => '#27ae60', // vert
         ],
         'sp95' => [
-            'nom'         => 'SP95',
+            'nom' => 'SP95',
             'description' => 'Sans-plomb 95, sans éthanol (E5 max), indice octane 95',
-            'couleur'     => '#16a085', // vert foncé
+            'couleur' => '#16a085', // vert foncé
         ],
         'sp98' => [
-            'nom'         => 'SP98',
+            'nom' => 'SP98',
             'description' => 'Sans-plomb 98, indice d\'octane élevé',
-            'couleur'     => '#2980b9', // bleu
+            'couleur' => '#2980b9', // bleu
         ],
         'gazole' => [
-            'nom'         => 'Gazole',
+            'nom' => 'Gazole',
             'description' => 'Diesel, carburant des moteurs à compression',
-            'couleur'     => '#f39c12', // orange
+            'couleur' => '#f39c12', // orange
         ],
         'e85' => [
-            'nom'         => 'E85',
+            'nom' => 'E85',
             'description' => 'Superéthanol, contient 65 à 85% d\'éthanol',
-            'couleur'     => '#8e44ad', // violet
+            'couleur' => '#8e44ad', // violet
         ],
         'gpl' => [
-            'nom'         => 'GPL',
+            'nom' => 'GPL',
             'description' => 'Gaz de Pétrole Liquéfié (LPG)',
-            'couleur'     => '#e74c3c', // rouge
+            'couleur' => '#e74c3c', // rouge
         ],
     ],
 

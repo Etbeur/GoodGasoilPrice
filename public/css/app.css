@@ -175,12 +175,14 @@
         }
 
         /* Prix principal ---------------------------------------------------- */
-        .prix-principal {
+        .prix-principal,
+        .prix-theorique {
             text-align: center;
             margin-bottom: 1.25rem;
         }
 
-        .prix-principal .label {
+        .prix-principal .label,
+        .prix-theorique .label {
             font-size: 0.78rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
@@ -188,14 +190,18 @@
             margin-bottom: 0.25rem;
         }
 
-        .prix-principal .valeur {
+        .prix-principal .valeur,
+        .prix-theorique .prix-valeur,
+        .prix-theorique .valeur {
             font-size: 2.4rem;
             font-weight: 800;
             color: var(--couleur-accent);
             letter-spacing: -0.02em;
         }
 
-        .prix-principal .valeur .unite {
+        .prix-principal .valeur .unite,
+        .prix-theorique .prix-valeur .unite,
+        .prix-theorique .valeur .unite {
             font-size: 1rem;
             font-weight: 400;
             color: var(--couleur-texte-leger);
@@ -207,7 +213,7 @@
             margin-top: 0.2rem;
         }
 
-        /* DÃ©composition du prix --------------------------------------------- */
+        /* Décomposition du prix --------------------------------------------- */
         .decomposition {
             border-top: 1px solid var(--couleur-bordure);
             padding-top: 1rem;
@@ -239,7 +245,8 @@
             font-weight: 500;
         }
 
-        .decomposition table tr.total td {
+        .decomposition table tr.total td,
+        .decomposition table tr.ligne-total td {
             font-weight: 700;
             color: var(--couleur-texte);
             border-top: 1px solid var(--couleur-bordure);
@@ -354,7 +361,8 @@
         }
         /* Balise AdSense Ã  placer ici en V2 */
 
-        /* Note source ICE (Gazole uniquement) ------------------------------ */
+        /* Note source NYMEX (Gazole uniquement) ------------------------------ */
+        .note-source-nymex,
         .note-source-ice {
             padding: 0.6rem 1.25rem;
             background: #fffbf0;
@@ -364,12 +372,48 @@
             font-style: italic;
         }
 
+        .note-source-nymex p {
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .note-nymex-valeurs {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            margin-top: 0.4rem;
+        }
+
+        .note-nymex-valeur,
         .note-lsg-valeur {
             display: inline-block;
-            margin-top: 0.2rem;
             font-style: normal;
             font-weight: 600;
             color: var(--couleur-texte);
+        }
+
+        .note-nymex-date,
+        .note-fallback-date {
+            display: inline-block;
+            font-size: 0.72rem;
+            color: var(--couleur-texte-leger);
+            margin-top: 0.2rem;
+            font-style: normal;
+        }
+
+        /* Note source de repli Brent (Gazole) -------------------------------- */
+        .note-source-fallback-brent {
+            padding: 0.6rem 1.25rem;
+            background: #fdf8e8;
+            border-top: 1px solid #f2e2be;
+            font-size: 0.75rem;
+            color: #7d5a00;
+            font-style: italic;
+        }
+
+        .note-source-fallback-brent p {
+            margin: 0;
+            line-height: 1.4;
         }
 
         /* Prix moyen national déclaré (Open Data officiel) -------------------- */

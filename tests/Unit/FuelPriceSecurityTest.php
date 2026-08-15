@@ -107,7 +107,7 @@ class FuelPriceSecurityTest extends TestCase
         ]);
 
         $reflection = new \ReflectionClass($this->service);
-        $method = $reflection->getMethod('fetchGasoilRotterdamYahoo');
+        $method = $reflection->getMethod('fetchGasoilNymexYahoo');
         $method->setAccessible(true);
 
         $result = $method->invoke($this->service);
@@ -128,7 +128,7 @@ class FuelPriceSecurityTest extends TestCase
         $sensitiveMessage = 'SENSITIVE_FRANKFURTER_NETWORK_TRACE_TOKEN';
 
         Http::fake([
-            'https://api.frankfurter.app/latest?from=USD&to=EUR' => function () use ($sensitiveMessage) {
+            'https://api.frankfurter.dev/v2/rates*' => function () use ($sensitiveMessage) {
                 throw new ConnectionException("Socket error with query token : {$sensitiveMessage}");
             },
         ]);
