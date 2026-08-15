@@ -30,16 +30,19 @@ SP95-E10, SP95, SP98, Gazole, E85, GPL
 ## APIS UTILISÉES
 
 ### 1. Taux de change USD vers EUR
-- Fournisseur : Frankfurter API (gratuite, sans clé, adossée aux taux de référence BCE du dernier jour ouvré)
-- URL : `https://api.frankfurter.app/latest?from=USD&to=EUR`
-- Réponse exemple : `{"amount":1.0,"base":"USD","date":"2026-08-14","rates":{"EUR":0.8645}}`
+- Fournisseur : Frankfurter API v2 (officielle, gratuite, sans clé, adossée aux taux de référence de la Banque Centrale Européenne - BCE)
+- URL : `https://api.frankfurter.dev/v2/rates?base=USD&quotes=EUR&providers=ECB&expand=providers`
+- Extraction stricte : observation `key === 'ECB'` avec taux et date canoniques de la BCE
+- Cache 1 heure (nominal) et 7 jours (dernier taux valide conservé avec métadonnées complètes)
 
 ### 2. Cours du pétrole Brent
 - Fournisseur principal : Yahoo Finance API non officielle (gratuite, sans clé, symbole `BZ=F`)
 - Fallback : Alpha Vantage (clé API requise dans `.env` si activé)
 
-### 3. Cotation Gazole (proxy ARA Rotterdam)
-- Fournisseur : Yahoo Finance API non officielle (ticker `HO=F`, Heating Oil NYMEX)
+### 3. Indicateur Gazole NYMEX (indicateur US de repli)
+- Fournisseur : Yahoo Finance API non officielle (ticker `HO=F`, NY Harbor ULSD)
+- Cotation en USD/gallon convertie en EUR/L : `(HO_USD / 3.785411784) * taux_USD_EUR` sans prime arbitraire
+- Utilisé comme repère de marché en l'absence de flux public ouvert pour la cotation ARA Rotterdam (ICE Gasoil)
 
 ### 4. Prix moyens nationaux déclarés (DGCCRF)
 - Source officielle : Ministère de l'Économie / DGCCRF via Open Data (`data.economie.gouv.fr`)
@@ -71,15 +74,15 @@ Sources : UFIP, FIPECO, Direction Générale des Douanes, loi de finances 2026.
 ## FORMULE DE CALCUL DU PRIX THÉORIQUE
 
 ```text
-Étape 1 : Coût brut par litre
-  = (cours Brent en USD / 159) × taux USD vers EUR
-  (159 = nombre de litres dans un baril de pétrole)
+Étape 1 : Coût brut / matière par litre
+  - Essences/GPL : (cours Brent en USD / 159) × taux USD vers EUR
+  - Gazole       : (HO=F en USD / 3.785411784) × taux USD vers EUR (indicateur NY Harbor ULSD)
+  - E85          : formule hybride (15 % Brent + 85 % éthanol agricole à 0.42 €/L)
 
 Étape 2 : Ajouter marge de raffinage
   - Essences (SP95, SP98, E10) : +0.07 à +0.09 €/litre
-  - Gazole (proxy HO=F)        : cotation directe incluant raffinage + prime ARA 0.06 €/litre
-  - E85                        : formule hybride (15 % Brent + 85 % éthanol agricole à 0.42 €/L)
   - GPL                        : +0.04 €/litre
+  - Gazole (indicateur HO=F)   : cotation directe du distillat raffiné (pas de marge ajoutée ni de prime fixe)
 
 Étape 3 : Ajouter marge distribution normale
   +0.32 €/litre pour essences et gazole (inclus CEE et TIRUERT) ; +0.10 €/litre pour E85/GPL
@@ -170,7 +173,7 @@ Fichiers de déploiement présents à la racine :
 - FIPECO taxes carburants : https://www.fipeco.fr
 - Connaissance des Énergies : https://www.connaissancedesenergies.org
 - CLCV marges distribution : https://www.clcv.org
-- Frankfurter API (BCE) : https://www.frankfurter.app
+- Frankfurter API (BCE) : https://api.frankfurter.dev/v2/rates?base=USD&quotes=EUR&providers=ECB&expand=providers
 - Prix des carburants en France : https://prix-carburants.gouv.fr
 - Open Data Ministère de l'Économie : https://data.economie.gouv.fr
 

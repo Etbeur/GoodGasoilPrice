@@ -58,10 +58,19 @@ Le flux applicatif est le suivant :
 
 ## Sources de données
 
-- **Cours Brent** : Yahoo Finance API (ticker `BZ=F`, dernières données disponibles)
-- **Heating Oil NYMEX** : Yahoo Finance API (ticker `HO=F`, proxy du gasoil ARA Rotterdam)
-- **Taux de change USD vers EUR** : [Frankfurter API](https://www.frankfurter.app), adossée aux taux de référence de la Banque Centrale Européenne (dernier jour ouvré)
-- **Prix moyens nationaux déclarés** : [data.economie.gouv.fr](https://data.economie.gouv.fr) — Jeu de données officiel DGCCRF / prix-carburants.gouv.fr (Licence Ouverte 2.0)
+- **Cours Brent** : Yahoo Finance API (ticker `BZ=F`, dernières données disponibles), avec fallback serveur Alpha Vantage (cotation et date réelles).
+- **Indicateur Gazole NYMEX** : Yahoo Finance API (ticker `HO=F`, NY Harbor ULSD — indicateur de repli du marché américain en l'absence de flux public ARA temps réel).
+- **Taux de change USD vers EUR** : [Frankfurter API v2](https://api.frankfurter.dev/v2/rates?base=USD&quotes=EUR&providers=ECB&expand=providers), adossée aux publications officielles de la Banque Centrale Européenne (BCE).
+- **Prix moyens nationaux déclarés** : [data.economie.gouv.fr](https://data.economie.gouv.fr) — Jeu de données officiel DGCCRF / prix-carburants.gouv.fr (Licence Ouverte 2.0).
+
+### Résilience et gestion du cache du taux de change BCE
+
+Le service applique une stratégie de cache et de validation stricte :
+- **Cache nominal (1 heure)** : stocke le taux extrait de l'observation officielle BCE (`usd_eur_rate_data`).
+- **Cache de repli (7 jours)** : conserve le dernier taux BCE valide (`usd_eur_last_valid_data`) pour assurer la continuité de service en cas d'indisponibilité temporaire de l'API distante.
+- **Métadonnées conservées** : chaque entrée en cache contient obligatoirement `rate` (taux numérique positif fini), `date` (date YYYY-MM-DD validée) et `provider_key` (`ECB`).
+- **Rejet des caches anciens ou incomplets** : tout cache dépourvu de `provider_key`, portant sur un autre fournisseur ou contenant une valeur invalide est systématiquement rejeté.
+- **Absence de taux artificiel** : en cas de démarrage à froid sans aucune donnée valide accessible, l'application ne fabrique aucun taux arbitraire et signale proprement l'indisponibilité du marché.
 
 ## Formules de calcul
 
@@ -79,17 +88,24 @@ coût brut = (Brent $/baril / 159) x taux USD vers EUR
 
 ### Gazole
 
-Formule générale :
+Formule de calcul indicative :
 
 ```text
-coût matière = (HO=F $/gallon / 3.78541) x taux USD vers EUR
-+ prime ARA 0.06 €/L
+coût matière = (HO=F $/gallon / 3.785411784) x taux USD vers EUR
 + distribution 0.32 €/L
 + accise 0.61 €/L
 + TVA 20%
 ```
 
-Le Gazole utilise `HO=F` comme proxy du marché gasoil ARA Rotterdam.
+En l'absence de cotation ARA Rotterdam (ICE Low Sulphur Gasoil) en accès ouvert et temps réel, l'application utilise l'indicateur NY Harbor ULSD (`HO=F`, coté en USD/gallon) comme repère indicatif du marché américain des distillats. Aucune prime fixe arbitraire n'y est ajoutée. Si l'indicateur NY Harbor ULSD est indisponible, l'application active automatiquement un repli transparent vers le cours du Brent avec une marge de raffinage moyenne.
+
+**Repère de comparaison officiel DGEC (Ministère de la Transition écologique)** :
+À titre de repère de comparaison documenté (publication officielle hebdomadaire du [7 août 2026](https://www.ecologie.gouv.fr/sites/default/files/documents/NPG-2026.08.07.pdf), ce document n'étant pas une source dynamique de l'application mais un étalon de validation) :
+- Cotation internationale gazole : `0.880 €/L`
+- Transport-distribution : `0.320 €/L`
+- Accise : `0.610 €/L`
+- TVA 20 % : `0.362 €/L`
+- **Total TTC calculé** : `2.172 €/L` (fourchette `2.072 €/L` à `2.272 €/L`).
 
 ### E85
 
@@ -142,7 +158,6 @@ Le fichier `config/fuel.php` centralise notamment :
 - les marges de raffinage
 - les marges de distribution
 - `ethanol_cost_per_liter`
-- `gasoil_ara_premium`
 - la fourchette indicative affichée autour du prix théorique
 - la durée de cache des données de marché
 - la liste des carburants affichés
@@ -238,16 +253,15 @@ Vérifications à effectuer :
 1. Mettre à jour les accises selon la loi de finances en vigueur.
 2. Vérifier la TVA si le cadre fiscal évolue.
 3. Réviser `ethanol_cost_per_liter`.
-4. Réviser `gasoil_ara_premium`.
-5. Recontrôler les marges de distribution et de raffinage si les conditions de marché changent fortement.
-6. Vérifier que les sources externes sont toujours accessibles et stables.
+4. Recontrôler les marges de distribution et de raffinage si les conditions de marché changent fortement.
+5. Vérifier que les sources externes sont toujours accessibles et stables.
 
 ## Références
 
 - [UFIP Énergies et Mobilités](https://www.ufip.fr)
 - [FIPECO](https://www.fipeco.fr)
 - [CLCV](https://www.clcv.org)
-- [Frankfurter API](https://www.frankfurter.app)
+- [Frankfurter API](https://api.frankfurter.dev/v2/rates?base=USD&quotes=EUR&providers=ECB&expand=providers)
 - [Prix des carburants en France](https://prix-carburants.gouv.fr)
 - [Portail Open Data du Ministère de l'Économie](https://data.economie.gouv.fr)
 
