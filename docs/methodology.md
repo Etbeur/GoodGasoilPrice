@@ -9,7 +9,9 @@ Ce document détaille les principes économiques, les formules de calcul, les pa
 Good Gasoil Price calcule un **prix théorique indicatif** en reproduisant la chaîne de décomposition des coûts d'un carburant routier en France métropolitaine :
 
 ```text
-Prix TTC estimé = (Coût matière première HT + Marge de raffinage + Marge de transport/distribution + Accise fixe) × (1 + Taux TVA)
+Prix TTC estimé =
+(Coût matière première HT + Marge de raffinage + Marge de transport/distribution + Accise fixe)
+× (1 + Taux TVA)
 ```
 
 Ce modèle s'appuie sur :
@@ -24,11 +26,24 @@ Ce modèle s'appuie sur :
 
 ### 2.1 Matière première
 
-* **Pétrole brut Brent** : Référence internationale pour les carburants raffinés en Europe. La cotation en dollars par baril ($/baril) est convertie en euros par litre (€/L) sur la base de 1 baril = 159 litres :
-  $$\text{Coût brut (€/L)} = \frac{\text{Cours Brent (USD)}}{159} \times \text{Taux USD}\to\text{EUR}$$
+* **Pétrole brut Brent** : Référence internationale pour les carburants raffinés en Europe. La cotation en dollars par baril (USD/baril) est convertie en euros par litre (€/L) sur la base de 1 baril = 159 litres :
+
+```text
+Coût brut (€/L) =
+cours Brent (USD/baril) / 159
+× taux USD→EUR
+```
+
 * **Distillat gazole (NY Harbor ULSD — `HO=F`)** : En l'absence de flux public ouvert en temps réel pour la cotation ARA Rotterdam (*ICE Low Sulphur Gasoil*), l'application utilise l'indicateur NY Harbor ULSD (`HO=F`, exprimé en USD/gallon) comme repère indicatif de marché. La conversion en euros par litre s'effectue sur la base de 1 gallon US = 3,785411784 litres :
-  $$\text{Coût matière (€/L)} = \frac{\text{Cours HO=F (USD)}}{3{,}785411784} \times \text{Taux USD}\to\text{EUR}$$
+
+```text
+Coût matière (€/L) =
+cours HO=F (USD/gallon) / 3,785411784
+× taux USD→EUR
+```
+
   Aucune prime fixe arbitraire n'y est ajoutée. Si cet indicateur est temporairement indisponible, le service bascule automatiquement sur un calcul basé sur le Brent avec marge de raffinage moyenne.
+
 * **Éthanol agricole (E85)** : Le superéthanol E85 est composé en moyenne de 85 % de bioéthanol d'origine agricole et de 15 % d'essence sans plomb. Le coût matière combine :
   - 85 % d'éthanol à un coût de référence moyen fixé à **0,42 €/L** ;
   - 15 % de composante essence basée sur le cours du Brent.
@@ -73,29 +88,66 @@ La fiscalité sur les carburants en France comprend deux volets :
 
 ### 4.1 Essences (SP95-E10, SP95, SP98)
 
-$$\text{Prix HT} = \left(\frac{\text{Brent (\$)}}{159} \times \text{Taux USD}\to\text{EUR}\right) + \text{Marge raffinage} + 0{,}32$$
-$$\text{Prix TTC} = (\text{Prix HT} + \text{Accise}) \times 1{,}20$$
+```text
+Prix HT =
+(Brent en USD/baril / 159 × taux USD→EUR)
++ marge de raffinage
++ 0,32 €/L
+
+Prix TTC =
+(Prix HT + accise) × 1,20
+```
 
 ### 4.2 Gazole
 
 * **Mode nominal (Indicateur NY Harbor ULSD `HO=F`)** :
-  $$\text{Prix HT} = \left(\frac{\text{HO=F (\$)}}{3{,}785411784} \times \text{Taux USD}\to\text{EUR}\right) + 0{,}32$$
-  $$\text{Prix TTC} = (\text{Prix HT} + 0{,}6100) \times 1{,}20$$
+
+```text
+Prix HT =
+(HO=F en USD/gallon / 3,785411784 × taux USD→EUR)
++ 0,32 €/L
+
+Prix TTC =
+(Prix HT + 0,6100 €/L) × 1,20
+```
 
 * **Mode de repli (Brent si `HO=F` indisponible)** :
-  $$\text{Prix HT} = \left(\frac{\text{Brent (\$)}}{159} \times \text{Taux USD}\to\text{EUR}\right) + 0{,}08 + 0{,}32$$
-  $$\text{Prix TTC} = (\text{Prix HT} + 0{,}6100) \times 1{,}20$$
+
+```text
+Prix HT =
+(Brent en USD/baril / 159 × taux USD→EUR)
++ 0,08 €/L
++ 0,32 €/L
+
+Prix TTC =
+(Prix HT + 0,6100 €/L) × 1,20
+```
 
 ### 4.3 Superéthanol E85
 
-$$\text{Coût matière} = \left(0{,}15 \times \frac{\text{Brent (\$)}}{159} \times \text{Taux USD}\to\text{EUR}\right) + (0{,}85 \times 0{,}42)$$
-$$\text{Prix HT} = \text{Coût matière} + 0{,}10$$
-$$\text{Prix TTC} = (\text{Prix HT} + 0{,}1186) \times 1{,}20$$
+```text
+Coût matière =
+(0,15 × Brent en USD/baril / 159 × taux USD→EUR)
++ (0,85 × 0,42 €/L)
+
+Prix HT =
+Coût matière + 0,10 €/L
+
+Prix TTC =
+(Prix HT + 0,1186 €/L) × 1,20
+```
 
 ### 4.4 Gaz de Pétrole Liquéfié (GPL)
 
-$$\text{Prix HT} = \left(\frac{\text{Brent (\$)}}{159} \times \text{Taux USD}\to\text{EUR}\right) + 0{,}04 + 0{,}10$$
-$$\text{Prix TTC} = (\text{Prix HT} + 0{,}1710) \times 1{,}20$$
+```text
+Prix HT =
+(Brent en USD/baril / 159 × taux USD→EUR)
++ 0,04 €/L
++ 0,10 €/L
+
+Prix TTC =
+(Prix HT + 0,1710 €/L) × 1,20
+```
 
 ---
 
@@ -104,7 +156,11 @@ $$\text{Prix TTC} = (\text{Prix HT} + 0{,}1710) \times 1{,}20$$
 ### 5.1 Fourchette indicative affichée
 
 Afin de refléter les variations normales du marché de détail, l'application présente une **fourchette indicative de ±0,10 €/L** autour du prix estimé :
-$$\text{Fourchette} = [\text{Prix estimé} - 0{,}10\text{ €/L} \ ;\  \text{Prix estimé} + 0{,}10\text{ €/L}]$$
+
+```text
+Borne basse = prix estimé − 0,10 €/L
+Borne haute = prix estimé + 0,10 €/L
+```
 
 ### 5.2 Étalon de comparaison officiel DGEC
 
