@@ -44,7 +44,7 @@ cours HO=F (USD/gallon) / 3,785411784
 
   Aucune prime fixe arbitraire n'y est ajoutée. Si cet indicateur est temporairement indisponible, le service bascule automatiquement sur un calcul basé sur le Brent avec marge de raffinage moyenne.
 
-* **Éthanol agricole (E85)** : Le superéthanol E85 est composé en moyenne de 85 % de bioéthanol d'origine agricole et de 15 % d'essence sans plomb. Le coût matière combine :
+* **Éthanol agricole (E85)** : Pour son estimation, le modèle utilise une hypothèse simplifiée de 85 % de composante éthanol et 15 % de composante essence. Le coût matière combine :
   - 85 % d'éthanol à un coût de référence moyen fixé à **0,42 €/L** ;
   - 15 % de composante essence basée sur le cours du Brent.
 
@@ -55,7 +55,10 @@ La marge de raffinage couvre la transformation industrielle du brut en carburant
 * **SP95** : +0,08 €/L
 * **SP98** : +0,09 €/L
 * **GPL** : +0,04 €/L
-* **Gazole** : Non applicable lors de l'utilisation de la cotation `HO=F` (qui correspond déjà à un distillat raffiné). En cas de repli sur le Brent, une marge moyenne est appliquée.
+* **E85** : +0,03 €/L
+* **Gazole** :
+  * En mode nominal HO=F : aucune marge de raffinage supplémentaire, car le calcul part directement de l'indicateur de distillat raffiné ;
+  * En mode de repli Brent : marge configurée de **+0,43 €/L**.
 
 ### 2.3 Marge de transport et de distribution
 
@@ -116,7 +119,7 @@ Prix TTC =
 ```text
 Prix HT =
 (Brent en USD/baril / 159 × taux USD→EUR)
-+ 0,08 €/L
++ 0,43 €/L
 + 0,32 €/L
 
 Prix TTC =
@@ -131,7 +134,9 @@ Coût matière =
 + (0,85 × 0,42 €/L)
 
 Prix HT =
-Coût matière + 0,10 €/L
+Coût matière
++ 0,03 €/L
++ 0,10 €/L
 
 Prix TTC =
 (Prix HT + 0,1186 €/L) × 1,20
