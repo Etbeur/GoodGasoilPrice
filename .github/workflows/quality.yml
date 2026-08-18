@@ -1,0 +1,47 @@
+name: Quality CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite, dom, filter, json, libxml, tokenizer, curl, fileinfo
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Check code style
+        run: php vendor/bin/pint --test
+
+      - name: Run test suite
+        run: php artisan test
