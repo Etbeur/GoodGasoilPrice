@@ -2,6 +2,7 @@
 
 [![Laravel 13](https://img.shields.io/badge/Laravel-13-red.svg)](https://laravel.com)
 [![PHP 8.4](https://img.shields.io/badge/PHP-8.4-777BB4.svg)](https://www.php.net)
+[![Quality CI](https://github.com/Etbeur/GoodGasoilPrice/actions/workflows/quality.yml/badge.svg?branch=main)](https://github.com/Etbeur/GoodGasoilPrice/actions/workflows/quality.yml)
 [![Railway](https://img.shields.io/badge/Deploy-Railway-0B0D0E.svg)](https://railway.app)
 [![License MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
