@@ -1,43 +1,54 @@
-# Maintenance mensuelle groupée, revue humaine ; alertes et PR de sécurité séparées.
+# Maintenance mensuelle ; revue humaine, sans auto-merge.
+# Politique commune : https://github.com/Etbeur/LEZIDEJOU-platform/blob/main/docs/runbooks/dependency-maintenance.md
+# allow.update-types limite les versions ordinaires, pas les correctifs de securite.
 version: 2
 updates:
   - package-ecosystem: composer
     directory: /
     schedule:
       interval: monthly
-      time: "09:00"
+      time: '09:00'
       timezone: Europe/Paris
     open-pull-requests-limit: 2
     allow:
-      - dependency-name: "*"
+      - dependency-name: '*'
         update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-patch"
+          - 'version-update:semver-minor'
+          - 'version-update:semver-patch'
     groups:
-      production:
+      laravel-runtime:
         applies-to: version-updates
-        dependency-type: production
-        patterns: ["*"]
-        update-types: [minor, patch]
-      development:
+        patterns:
+          - laravel/framework
+          - laravel/tinker
+        update-types:
+          - minor
+          - patch
+      php-dev-tools:
         applies-to: version-updates
         dependency-type: development
-        patterns: ["*"]
-        update-types: [minor, patch]
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
-      time: "09:00"
+      time: '09:00'
       timezone: Europe/Paris
     open-pull-requests-limit: 1
     allow:
-      - dependency-name: "*"
+      - dependency-name: '*'
         update-types:
-          - "version-update:semver-minor"
-          - "version-update:semver-patch"
+          - 'version-update:semver-minor'
+          - 'version-update:semver-patch'
     groups:
       actions:
         applies-to: version-updates
-        patterns: ["*"]
-        update-types: [minor, patch]
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
